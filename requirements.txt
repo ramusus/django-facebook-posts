@@ -1,4 +1,4 @@
-django-facebook-api>=0.1.0
+django-facebook-api>=0.1.1
 django-facebook_applications>=0.1.0
 django-facebook_users>=0.1.0
 django-facebook_pages>=0.1.0

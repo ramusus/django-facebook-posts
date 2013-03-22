@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/ramusus/django-facebook-posts.png?branch=master)](https://travis-ci.org/ramusus/django-facebook-posts) [![Coverage Status](https://coveralls.io/repos/ramusus/django-facebook-posts/badge.png?branch=master)](https://coveralls.io/r/ramusus/django-facebook-posts)
 
-Application for interacting with Facebook Graph API Posts objects using standart Django model interface
+Application for interacting with Facebook Graph API Posts objects using Django model interface
 
 ## Installation
 
