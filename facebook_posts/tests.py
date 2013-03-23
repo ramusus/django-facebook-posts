@@ -25,10 +25,10 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(post.link, u'http://developers.facebook.com/blog/post/497')
         self.assertEqual(post.name, u'Developer Roadmap Update: Moving to OAuth 2.0 + HTTPS')
         self.assertEqual(post.description, u'\nWe continue to make Platform more secure for users. Earlier this year, we introduced the ability for users to browse Facebook over HTTPS. As a result, we provided “Secure Canvas URL” and “Secure Tab URL” fields in the Developer App for developers to serve their apps through an H')
-        self.assertEqual(post.icon, 'http://photos-b.ak.fbcdn.net/photos-ak-snc7/v85006/169/9953271133/app_2_9953271133_841622721.gif')
         self.assertEqual(post.type, 'link')
         self.assertEqual(post.status_type, 'app_created_story')
-        self.assertEqual(post.created_time, datetime(2011,5,10,18,35,38))
+        self.assertEqual(post.created_time.replace(tzinfo=None), datetime(2011,5,10,18,35,38))
+        self.assertTrue('app_2_9953271133_841622721.gif' in post.icon)
         self.assertTrue(len(post.picture) > 20)
 
     def test_fetch_post_application(self):
@@ -114,8 +114,8 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(comment.message, 'ok')
         self.assertEqual(comment.can_remove, False)
         self.assertEqual(comment.user_likes, False)
-        self.assertEqual(comment.likes_count, 482)
-        self.assertEqual(comment.created_time, datetime(2011,5,10,18,36,29))
+        self.assertEqual(comment.created_time.replace(tzinfo=None), datetime(2011,5,10,18,36,29))
+        self.assertTrue(comment.likes_count > 400)
 
         post.fetch_all_comments()
         self.assertTrue(Comment.objects.count() > 100)
