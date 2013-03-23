@@ -13,7 +13,12 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False, # because we're including media that Django needs
-    install_requires=[r.strip() for r in open('requirements.txt').readlines()],
+    install_requires=[
+        'django-facebook-api>=0.1.4',
+        'django-facebook_applications>=0.1.0',
+        'django-facebook_users>=0.1.0',
+        'django-facebook_pages>=0.1.0',
+    ],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Environment :: Web Environment',
