@@ -42,6 +42,8 @@ class FacebookLikableModel(models.Model):
         Retrieve and save all likes of post
         '''
         response = graph('%s/likes' % self.graph_id, limit=limit, offset=offset)
+        if not response:
+            return
 
         if delete_all:
             self.like_users.clear()
@@ -154,6 +156,9 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
         Retrieve and save all comments of post
         '''
         response = graph('%s/comments' % self.graph_id, limit=limit, offset=offset)
+        if not response:
+            return
+
         log.debug('response len - %s' % len(response.data))
 
         instances = []
