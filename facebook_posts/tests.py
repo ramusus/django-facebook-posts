@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 from django.test import TestCase
-from facebook_pages.models import Page
+from facebook_pages.factories import PageFactory
 from facebook_applications.models import Application
 from facebook_users.models import User
 from models import Post, PostOwner, Comment
-from datetime import datetime
+from datetime import datetime, timedelta
 
+PAGE_ID = '19292868552'
 POST1_ID = '19292868552_10150189643478553'
 POST2_ID = '40796308305_10151982794203306'
 COMMENT1_ID = '19292868552_10150189643478553_16210808'
@@ -144,3 +145,22 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(comment.likes_real_count, User.objects.count())
 #        self.assertEqual(comment.like_users.count(), comment.likes_count) # TODO: fix strange ammount of real likes
 #        self.assertEqual(comment.likes_real_count, comment.likes_count)
+
+    def test_fetch_posts_of_page(self):
+
+        page = PageFactory.create(graph_id=PAGE_ID)
+
+        self.assertEqual(Post.objects.count(), 0)
+
+        posts = page.fetch_posts(limit=100)
+        posts_count = Post.objects.count()
+
+        self.assertEqual(posts_count, 100)
+        self.assertEqual(posts_count, len(posts))
+
+        Post.objects.all().delete()
+        posts = page.fetch_posts(since=datetime.now() - timedelta(10))
+        posts_count1 = Post.objects.count()
+
+        self.assertTrue(posts_count1 < posts_count)
+        self.assertEqual(posts_count1, len(posts))

@@ -30,6 +30,55 @@ def get_or_create_from_small_resource(resource):
         return Application.objects.get_or_create(graph_id=resource['id'], defaults=defaults)[0]
         pass
 
+class PostFacebookGraphManager(FacebookGraphManager):
+
+    def fetch_page_wall(self, page, all=False, limit=1000, offset=0, until=None, since=None):
+        kwargs = {
+            'limit': int(limit),
+            'offset': int(offset),
+        }
+        if until:
+            kwargs['until'] = int(time.mktime(until.timetuple()))
+        if since:
+            kwargs['since'] = int(time.mktime(since.timetuple()))
+
+        response = graph('%s/posts' % page.graph_id, **kwargs)
+        # TODO: think about this condition more deeply
+        if response is None:
+            return page.wall_posts.all()
+        # TODO: move this checking to level up
+        if 'error_code' in response and response['error_code'] == 1:
+            return self.fetch_page_wall(page, all, limit, offset, until)
+
+        log.debug('response objects count - %s' % len(response.data))
+
+        instances = []
+        for resource in response.data:
+            try:
+                instance = Post.remote.get_or_create_from_resource(resource)
+            except Exception, e:
+                log.error("Impossible to save post with resource %s. Error is '%s'" % (resource, e))
+                continue
+
+            if instance.owners.count() == 0:
+                post_owner = PostOwner.objects.get_or_create(post=instance, owner_content_type=ContentType.objects.get_for_model(page), owner_id=page.id)[0]
+                instance.owners.add(post_owner)
+            instances += [instance]
+
+        if all:
+            response_count = len(instances)
+            log.debug('objects count - %s, limit - %s, offset - %s, until - %s' % (response_count, limit, offset, until))
+
+            if response_count != 0:
+                return self.fetch_page_wall(page, all, limit, until=instances[len(instances)-1].created_time)
+            else:
+                page.posts_count = page.wall_posts.count()
+                page.save()
+
+            instances = page.wall_posts.all()
+
+        return instances
+
 class FacebookLikableModel(models.Model):
     class Meta:
         abstract = True
@@ -122,7 +171,7 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
     comments_real_count = models.IntegerField(default=0)
 
     objects = models.Manager()
-    remote = FacebookGraphManager()
+    remote = PostFacebookGraphManager()
 
     def __unicode__(self):
         return '%s: %s' % (unicode(self.author), self.message or self.story)

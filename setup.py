@@ -17,7 +17,7 @@ setup(
         'django-facebook-api>=0.1.8',
         'django-facebook_applications>=0.1.0',
         'django-facebook_users>=0.1.0',
-        'django-facebook_pages>=0.1.0',
+        'django-facebook_pages>=0.1.3',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
