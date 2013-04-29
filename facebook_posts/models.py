@@ -163,7 +163,7 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
 
         instances = []
         for resource in response.data:
-            instance = Comment.remote.get_or_create_from_resource(resource)
+            instance = Comment.remote.get_or_create_from_resource(resource, {'post_id': self.id})
             log.debug('comments count - %s' % Comment.objects.count())
             instances += [instance]
 
@@ -280,11 +280,6 @@ class Comment(FacebookGraphIDModel, FacebookLikableModel):
 
         if self.author is None and self.author_json:
             self.author = get_or_create_from_small_resource(self.author_json)
-
-        try:
-            self.post = Post.objects.get(graph_id='_'.join(self.graph_id.split('_')[0:2]))
-        except:
-            raise ValueError("Can not save comment ID=%s to non-existing post" % self.graph_id)
 
     def get_url(self):
         post_id, comment_id = self.graph_id.split('_')[1], self.graph_id.split('_')[2]
