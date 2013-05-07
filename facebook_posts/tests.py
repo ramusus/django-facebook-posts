@@ -137,8 +137,8 @@ class FacebookPostsTest(TestCase):
 
     def test_fetch_comment_likes(self):
 
-        Post.remote.fetch(POST1_ID)
-        comment = Comment.remote.fetch(COMMENT1_ID)
+        post = Post.remote.fetch(POST1_ID)
+        comment = Comment.remote.fetch(COMMENT1_ID, extra_fields={'post_id': post.id})
 
         self.assertEqual(comment.like_users.count(), 0)
         comment.fetch_likes()
