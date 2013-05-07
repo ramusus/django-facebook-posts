@@ -25,10 +25,10 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(post.graph_id, POST1_ID)
         self.assertEqual(post.link, u'http://developers.facebook.com/blog/post/497')
         self.assertEqual(post.name, u'Developer Roadmap Update: Moving to OAuth 2.0 + HTTPS')
-        self.assertEqual(post.description, u'\nWe continue to make Platform more secure for users. Earlier this year, we introduced the ability for users to browse Facebook over HTTPS. As a result, we provided “Secure Canvas URL” and “Secure Tab URL” fields in the Developer App for developers to serve their apps through an H')
         self.assertEqual(post.type, 'link')
         self.assertEqual(post.status_type, 'app_created_story')
         self.assertEqual(post.created_time.replace(tzinfo=None), datetime(2011,5,10,18,35,38))
+        self.assertTrue('We continue to make Platform more secure for users' in post.description)
         self.assertTrue('app_2_9953271133_841622721.gif' in post.icon)
         self.assertTrue(len(post.picture) > 20)
 
