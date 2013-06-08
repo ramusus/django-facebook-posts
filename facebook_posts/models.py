@@ -161,6 +161,7 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
 
     likes_json = fields.JSONField(null=True, help_text='Likes for this post') #Structure containing a data object and the count of total likes, with data containing an array of objects, each with the name and Facebook id of the user who liked the post
     comments_json = fields.JSONField(null=True, help_text='Comments for this post') # Structure containing a data object containing an array of objects, each with the id, from, message, and created_time for each comment
+    shares_json = fields.JSONField(null=True, help_text='Shares for this post') # Just only get count here, maybe the detail only for manager? 
 
     # not in API
     status_type = models.CharField(max_length=100)
@@ -170,6 +171,8 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
     # extracted from inner data
     comments_count = models.IntegerField(default=0)
     comments_real_count = models.IntegerField(default=0)
+
+    shares_count = models.IntegerField(default=0)
 
     objects = models.Manager()
     remote = PostFacebookGraphManager()
@@ -184,7 +187,7 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
         if 'to' in response and len(response['to']['data']):
             response['owners_json'] = response.pop('to')['data']
 
-        for field in ['likes','comments']:
+        for field in ['likes','comments','shares']:
             if field in response:
                 if 'count' in response[field]:
                     response['%s_count' % field] = response[field]['count']
