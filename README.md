@@ -130,7 +130,7 @@ Add into `settings.py` lines:
 
 Fetch all comments of post
 
-    >>> post.fetch_all_comments()
+    >>> post.fetch_comments(all=True)
     [<Comment: Comment object>, <Comment: Comment object>, <Comment: Comment object>, '...(remaining elements truncated)...']
     >>> page.wall_comments.count()
     610

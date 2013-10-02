@@ -3,7 +3,7 @@ from django.test import TestCase
 from facebook_pages.factories import PageFactory
 from facebook_applications.models import Application
 from facebook_users.models import User
-from models import Post, PostOwner, Comment
+from models import Post, PostOwner, Comment, Page
 from datetime import datetime, timedelta
 
 PAGE_ID = '19292868552'
@@ -27,9 +27,9 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(post.name, u'Developer Roadmap Update: Moving to OAuth 2.0 + HTTPS')
         self.assertEqual(post.type, 'link')
         self.assertEqual(post.status_type, 'app_created_story')
-        self.assertEqual(post.created_time.replace(tzinfo=None), datetime(2011,5,10,18,35,38))
+        self.assertEqual(post.created_time, datetime(2011,5,10,22,35,38))
         self.assertTrue('We continue to make Platform more secure for users' in post.description)
-        self.assertTrue('app_2_9953271133_841622721.gif' in post.icon)
+        self.assertTrue(len(post.icon) > 0)
         self.assertTrue(len(post.picture) > 20)
 
     def test_fetch_post_application(self):
@@ -75,7 +75,7 @@ class FacebookPostsTest(TestCase):
         postowner = PostOwner.objects.all()[0]
 
         author = {
-            "name": "Calum Alex Gaterr",
+            "name": "Calum Gaterr",
             "id": "100001882194092"
         }
         owners = [{
@@ -87,7 +87,7 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(post.author, user)
         self.assertEqual(post.owners.all()[0], postowner)
         # self.assertEqual(post.owners_json, owners) # TODO: fix saving json as string
-        self.assertEqual(post.author_json, author)
+        self.assertDictEqual(post.author_json, author)
 
         self.assertEqual(user.graph_id, author['id'])
         self.assertEqual(user.name, author['name'])
@@ -102,10 +102,14 @@ class FacebookPostsTest(TestCase):
         post = Post.objects.all()[0]
 
         self.assertEqual(Comment.objects.count(), 0)
-        post.fetch_comments()
-        self.assertTrue(Comment.objects.count() > 50)
+        comments = post.fetch_comments(limit=100)
+        self.assertTrue(Comment.objects.count() == comments.count() == 100)
 
-        comment = Comment.objects.get(graph_id='19292868552_10150189643478553_16210808')
+        comments = post.fetch_comments(all=True)
+        self.assertTrue(Comment.objects.count() > 100)
+        self.assertTrue(Comment.objects.count() == comments.count() == post.comments_real_count)
+
+        comment = comments.get(graph_id=COMMENT1_ID)
         user = User.objects.get(graph_id='100001650376589')
 
         self.assertEqual(user.name, 'Whdtabbasiwahd Abbas')
@@ -115,12 +119,9 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(comment.message, 'ok')
         self.assertEqual(comment.can_remove, False)
         self.assertEqual(comment.user_likes, False)
-        self.assertEqual(comment.created_time.replace(tzinfo=None), datetime(2011,5,10,18,36,29))
+        self.assertEqual(comment.created_time, datetime(2011,5,10,22,36,29))
         self.assertTrue(comment.likes_count > 400)
 
-        post.fetch_all_comments()
-        self.assertTrue(Comment.objects.count() > 100)
-        self.assertEqual(post.comments_real_count, Comment.objects.count())
 #        self.assertEqual(post.comments.count(), post.comments_count) # TODO: fix strange ammount of real comments
 #        self.assertEqual(post.comments_real_count, post.comments_count)
 

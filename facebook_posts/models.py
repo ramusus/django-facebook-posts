@@ -4,12 +4,14 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 from facebook_api import fields
 from facebook_api.utils import graph
+from facebook_api.decorators import fetch_all
 from facebook_api.models import FacebookGraphIDModel, FacebookGraphManager
 from facebook_applications.models import Application
 from facebook_users.models import User
 from facebook_pages.models import Page
 import logging
 import time
+import re
 
 log = logging.getLogger('facebook_posts')
 
@@ -161,7 +163,7 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
 
     likes_json = fields.JSONField(null=True, help_text='Likes for this post') #Structure containing a data object and the count of total likes, with data containing an array of objects, each with the name and Facebook id of the user who liked the post
     comments_json = fields.JSONField(null=True, help_text='Comments for this post') # Structure containing a data object containing an array of objects, each with the id, from, message, and created_time for each comment
-    shares_json = fields.JSONField(null=True, help_text='Shares for this post') # Just only get count here, maybe the detail only for manager? 
+    shares_json = fields.JSONField(null=True, help_text='Shares for this post') # Just only get count here, maybe the detail only for manager?
 
     # not in API
     status_type = models.CharField(max_length=100)
@@ -204,7 +206,13 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
                 if owner:
                     self._external_links_to_add += [('owners', PostOwner(post=self, owner=owner))]
 
-    def fetch_comments(self, limit=100, offset=0):
+    def update_count_and_get_comments(self, *args, **kwargs):
+        self.comments_real_count = self.comments.count()
+        self.save()
+        return self.comments.all()
+
+    @fetch_all(return_all=update_count_and_get_comments, default_count=1000, kwargs_count='limit')
+    def fetch_comments(self, limit=1000, offset=0):
         '''
         Retrieve and save all comments of post
         '''
@@ -212,32 +220,15 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
         if not response:
             return
 
-        log.debug('response len - %s' % len(response.data))
+        log.debug('response objects count - %s, limit - %s, offset - %s' % (len(response.data), limit, offset))
 
-        instances = []
+        instances = Comment.objects.none()
         for resource in response.data:
             instance = Comment.remote.get_or_create_from_resource(resource, {'post_id': self.id})
             log.debug('comments count - %s' % Comment.objects.count())
-            instances += [instance]
+            instances |= Comment.objects.filter(pk=instance.pk)
 
         return instances
-
-    def fetch_all_comments(self, limit=1000, offset=0):
-        '''
-        Retrieve and save all comments of post
-        '''
-        instances = self.fetch_comments(limit=limit, offset=offset)
-        response_count = len(instances)
-        log.debug('response objects count - %s, limit - %s, offset - %s' % (response_count, limit, offset))
-
-        # TODO: fix wrong limiting of fetching comments
-        if response_count != 0:
-            return self.fetch_all_comments(limit=limit, offset=offset+response_count)
-        else:
-            self.comments_real_count = self.comments.count()
-            self.save()
-
-        return self.comments.all()
 
     def save(self, *args, **kwargs):
         # set exactly right Page or User contentTypes, not a child
@@ -323,11 +314,14 @@ class Comment(FacebookGraphIDModel, FacebookLikableModel):
         return super(Comment, self).save(*args, **kwargs)
 
     def parse(self, response):
-
         if 'from' in response:
             response['author_json'] = response.pop('from')
         if 'like_count' in response:
             response['likes_count'] = response.pop('like_count')
+
+        # transform graph_id from {POST_ID}_{COMMENT_ID} -> {PAGE_ID}_{POST_ID}_{COMMENT_ID}
+        if response['id'].count('_') == 1:
+            response['id'] = re.sub(r'^\d+', self.post.graph_id, response['id'])
 
         super(Comment, self).parse(response)
 
