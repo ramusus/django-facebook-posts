@@ -229,7 +229,7 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
         return instances
 
     def save(self, *args, **kwargs):
-        # set exactly right Page or User contentTypes, not a child
+        # set exactly Page or User contentTypes, not a child
         for field_name in ['author']:
             for allowed_model in [Page, User]:
                 if isinstance(getattr(self, field_name), allowed_model):
