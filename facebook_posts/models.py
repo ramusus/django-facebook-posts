@@ -131,7 +131,6 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
     author = generic.GenericForeignKey('author_content_type', 'author_id')
 
     application = models.ForeignKey(Application, null=True, help_text='Application this post came from', related_name='posts')
-#    owners = models.ManyToManyField('PostOwner')
 
     message = models.TextField(help_text='The message')
 
@@ -243,6 +242,13 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
 
         return super(Post, self).save(*args, **kwargs)
 
+    def get_url(self):
+        try:
+            owner_screenname = self.owners.all()[0].owner.username
+        except:
+            owner_screenname = ''
+        return super(Post, self).get_url('%s/posts/%s' % (owner_screenname, self.graph_id.split('_')[1]))
+
 class PostOwner(models.Model):
     '''
     Connection model for keeping multiple owners of single post
@@ -327,5 +333,9 @@ class Comment(FacebookGraphIDModel, FacebookLikableModel):
             self.author = get_or_create_from_small_resource(self.author_json)
 
     def get_url(self):
-        post_id, comment_id = self.graph_id.split('_')[1], self.graph_id.split('_')[2]
-        return 'http://www.facebook.com/coca-cola/posts/%s?comment_id=%s' % (post_id, comment_id)
+        try:
+            owner_screenname = self.post.owners.all()[0].owner.username
+        except:
+            owner_screenname = ''
+        post_id, comment_id = self.graph_id.split('_')[1:]
+        return super(Comment, self).get_url('%s/posts/%s?comment_id=%s' % (owner_screenname, post_id, comment_id))

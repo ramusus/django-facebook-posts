@@ -14,7 +14,7 @@ setup(
     include_package_data=True,
     zip_safe=False, # because we're including media that Django needs
     install_requires=[
-        'django-facebook-api>=0.1.13',
+        'django-facebook-api>=0.1.14',
         'django-facebook_applications>=0.1.0',
         'django-facebook_users>=0.1.0',
         'django-facebook_pages>=0.1.3',
