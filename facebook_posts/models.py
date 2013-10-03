@@ -87,7 +87,6 @@ class FacebookLikableModel(models.Model):
         abstract = True
 
     likes_count = models.IntegerField(default=0)
-    likes_real_count = models.IntegerField(default=0)
 
     def fetch_likes(self, limit=1000, offset=0, delete_all=True):
         '''
@@ -110,7 +109,7 @@ class FacebookLikableModel(models.Model):
         if response_count != 0:
             return self.fetch_likes(limit=limit, offset=offset+response_count, delete_all=False)
         else:
-            self.likes_real_count = self.like_users.count()
+            self.likes_count = self.like_users.count()
             self.save()
 
         return self.like_users.all()
@@ -172,7 +171,6 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
 
     # extracted from inner data
     comments_count = models.IntegerField(default=0)
-    comments_real_count = models.IntegerField(default=0)
 
     shares_count = models.IntegerField(default=0)
 
@@ -207,7 +205,7 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
                     self._external_links_to_add += [('owners', PostOwner(post=self, owner=owner))]
 
     def update_count_and_get_comments(self, *args, **kwargs):
-        self.comments_real_count = self.comments.count()
+        self.comments_count = self.comments.count()
         self.save()
         return self.comments.all()
 

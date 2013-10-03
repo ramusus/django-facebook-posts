@@ -11,7 +11,7 @@ class CommentInline(admin.TabularInline):
     can_delete = False
 
 class PostAdmin(FacebookModelAdmin):
-    list_display = ('author','message','story','created_time','application','status_type','type','likes_count','likes_real_count','comments_count','comments_real_count')
+    list_display = ('author','message','story','created_time','application','status_type','type','likes_count','comments_count')
     list_display_links = ('message','story',)
     list_filter = ('type','application',)
     search_fields = ('message','story','name','caption','description')
