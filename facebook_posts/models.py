@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 from django.db import models
+try:
+    from django.db.transaction import atomic
+except ImportError:
+    from django.db.transaction import commit_on_success as atomic
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 from facebook_api import fields
@@ -35,6 +39,7 @@ def get_or_create_from_small_resource(resource):
 
 class PostFacebookGraphManager(FacebookGraphManager):
 
+    @atomic
     def fetch_page_wall(self, page, all=False, limit=1000, offset=0, until=None, since=None):
         kwargs = {
             'limit': int(limit),
@@ -88,6 +93,7 @@ class FacebookLikableModel(models.Model):
 
     likes_count = models.IntegerField(default=0)
 
+    @atomic
     def fetch_likes(self, limit=1000, offset=0, delete_all=True):
         '''
         Retrieve and save all likes of post
@@ -127,7 +133,7 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
     owners_json = fields.JSONField(null=True, help_text='Profiles mentioned or targeted in this post') # Contains in data an array of objects, each with the name and Facebook id of the user
 
     author_content_type = models.ForeignKey(ContentType, null=True, related_name='facebook_posts')
-    author_id = models.PositiveIntegerField(null=True)
+    author_id = models.PositiveIntegerField(null=True, db_index=True)
     author = generic.GenericForeignKey('author_content_type', 'author_id')
 
     application = models.ForeignKey(Application, null=True, help_text='Application this post came from', related_name='posts')
@@ -136,7 +142,7 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
 
     object_id = models.BigIntegerField(null=True, help_text='The Facebook object id for an uploaded photo or video')
 
-    created_time = models.DateTimeField(help_text='The time the post was initially published')
+    created_time = models.DateTimeField(help_text='The time the post was initially published', db_index=True)
     updated_time = models.DateTimeField(null=True, help_text='The time of the last comment on this post')
 
     picture = models.TextField(help_text='If available, a link to the picture included with this post')
@@ -208,6 +214,7 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
         self.save()
         return self.comments.all()
 
+    @atomic
     @fetch_all(return_all=update_count_and_get_comments, default_count=1000, kwargs_count='limit')
     def fetch_comments(self, limit=1000, offset=0):
         '''
@@ -236,9 +243,10 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
                     break
 
         # check is generic fields has correct content_type
-        allowed_ct_ids = [ct.id for ct in ContentType.objects.get_for_models(Page, User).values()]
-        if self.author_content_type.id not in allowed_ct_ids:
-            raise ValueError("'author' field should be Page or User instance")
+        if self.author_content_type:
+            allowed_ct_ids = [ct.id for ct in ContentType.objects.get_for_models(Page, User).values()]
+            if self.author_content_type.id not in allowed_ct_ids:
+                raise ValueError("'author' field should be Page or User instance")
 
         return super(Post, self).save(*args, **kwargs)
 
@@ -260,7 +268,7 @@ class PostOwner(models.Model):
     post = models.ForeignKey(Post, related_name='owners')
 
     owner_content_type = models.ForeignKey(ContentType, null=True, related_name='facebook_page_posts')
-    owner_id = models.PositiveIntegerField(null=True)
+    owner_id = models.PositiveIntegerField(null=True, db_index=True)
     owner = generic.GenericForeignKey('owner_content_type', 'owner_id')
 
     def save(self, *args, **kwargs):
@@ -272,9 +280,10 @@ class PostOwner(models.Model):
                     break
 
         # check is generic fields has correct content_type
-        allowed_ct_ids = [ct.id for ct in ContentType.objects.get_for_models(Page, User).values()]
-        if self.owner_content_type.id not in allowed_ct_ids:
-            raise ValueError("'owner' field should be Page or User instance")
+        if self.owner_content_type:
+            allowed_ct_ids = [ct.id for ct in ContentType.objects.get_for_models(Page, User).values()]
+            if self.owner_content_type.id not in allowed_ct_ids:
+                raise ValueError("'owner' field should be Page or User instance")
 
         return super(PostOwner, self).save(*args, **kwargs)
 
@@ -290,14 +299,14 @@ class Comment(FacebookGraphIDModel, FacebookLikableModel):
     author_json = fields.JSONField(null=True, help_text='Information about the user who posted the comment') # object containing the name and Facebook id of the user who posted the message
 
     author_content_type = models.ForeignKey(ContentType, null=True, related_name='facebook_comments')
-    author_id = models.PositiveIntegerField(null=True)
+    author_id = models.PositiveIntegerField(null=True, db_index=True)
     author = generic.GenericForeignKey('author_content_type', 'author_id')
 
     message = models.TextField(help_text='The message')
-    created_time = models.DateTimeField(help_text='The time the comment was initially published')
+    created_time = models.DateTimeField(help_text='The time the comment was initially published', db_index=True)
 
-    can_remove = models.BooleanField()
-    user_likes = models.BooleanField()
+    can_remove = models.BooleanField(default=False)
+    user_likes = models.BooleanField(default=False)
 
     objects = models.Manager()
     remote = FacebookGraphManager()
@@ -311,9 +320,10 @@ class Comment(FacebookGraphIDModel, FacebookLikableModel):
                     break
 
         # check is generic fields has correct content_type
-        allowed_ct_ids = [ct.id for ct in ContentType.objects.get_for_models(Page, User).values()]
-        if self.author_content_type and self.author_content_type.id not in allowed_ct_ids:
-            raise ValueError("'author' field should be Page or User instance")
+        if self.author_content_type:
+            allowed_ct_ids = [ct.id for ct in ContentType.objects.get_for_models(Page, User).values()]
+            if self.author_content_type.id not in allowed_ct_ids:
+                raise ValueError("'author' field should be Page or User instance")
 
         return super(Comment, self).save(*args, **kwargs)
 
