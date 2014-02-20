@@ -124,7 +124,6 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
     class Meta:
         verbose_name = 'Facebook post'
         verbose_name_plural = 'Facebook posts'
-        ordering = ['-created_time']
 
     like_users = models.ManyToManyField(User, related_name='like_posts')
 
@@ -263,7 +262,6 @@ class PostOwner(models.Model):
     '''
     class Meta:
         unique_together = ('post','owner_content_type','owner_id')
-        ordering = ('post',)
 
     post = models.ForeignKey(Post, related_name='owners')
 
@@ -291,7 +289,6 @@ class Comment(FacebookGraphIDModel, FacebookLikableModel):
     class Meta:
         verbose_name = 'Facebook comment'
         verbose_name_plural = 'Facebook comments'
-        ordering = ['-created_time']
 
     like_users = models.ManyToManyField(User, related_name='like_comments')
 
