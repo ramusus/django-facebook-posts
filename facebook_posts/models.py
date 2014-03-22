@@ -99,24 +99,22 @@ class FacebookLikableModel(models.Model):
         Retrieve and save all likes of post
         '''
         response = graph('%s/likes' % self.graph_id, limit=limit, offset=offset)
-        if not response:
-            return
+        if response:
+            if delete_all:
+                self.like_users.clear()
 
-        if delete_all:
-            self.like_users.clear()
+            response_count = len(response.data)
+            for resource in response.data:
+                user = get_or_create_from_small_resource(resource)
+                self.like_users.add(user)
+                log.debug('like users count - %s' % self.like_users.count())
+            log.debug('response objects count - %s, limit - %s, offset - %s' % (response_count, limit, offset))
 
-        response_count = len(response.data)
-        for resource in response.data:
-            user = get_or_create_from_small_resource(resource)
-            self.like_users.add(user)
-            log.debug('like users count - %s' % self.like_users.count())
-        log.debug('response objects count - %s, limit - %s, offset - %s' % (response_count, limit, offset))
-
-        if response_count != 0:
-            return self.fetch_likes(limit=limit, offset=offset+response_count, delete_all=False)
-        else:
-            self.likes_count = self.like_users.count()
-            self.save()
+            if response_count != 0:
+                return self.fetch_likes(limit=limit, offset=offset+response_count, delete_all=False)
+            else:
+                self.likes_count = self.like_users.count()
+                self.save()
 
         return self.like_users.all()
 
@@ -219,17 +217,16 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
         '''
         Retrieve and save all comments of post
         '''
-        response = graph('%s/comments' % self.graph_id, limit=limit, offset=offset)
-        if not response:
-            return
-
-        log.debug('response objects count - %s, limit - %s, offset - %s' % (len(response.data), limit, offset))
-
         instances = Comment.objects.none()
-        for resource in response.data:
-            instance = Comment.remote.get_or_create_from_resource(resource, {'post_id': self.id})
-            log.debug('comments count - %s' % Comment.objects.count())
-            instances |= Comment.objects.filter(pk=instance.pk)
+
+        response = graph('%s/comments' % self.graph_id, limit=limit, offset=offset)
+        if response:
+            log.debug('response objects count - %s, limit - %s, offset - %s' % (len(response.data), limit, offset))
+
+            for resource in response.data:
+                instance = Comment.remote.get_or_create_from_resource(resource, {'post_id': self.id})
+                log.debug('comments count - %s' % Comment.objects.count())
+                instances |= Comment.objects.filter(pk=instance.pk)
 
         return instances
 
