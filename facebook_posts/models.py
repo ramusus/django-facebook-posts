@@ -61,16 +61,14 @@ class PostFacebookGraphManager(FacebookGraphManager):
         log.debug('response objects count - %s' % len(response.data))
 
         instances = []
+        page_ct = ContentType.objects.get_for_model(page)
         for resource in response.data:
-            try:
-                instance = Post.remote.get_or_create_from_resource(resource)
-            except Exception, e:
-                log.error("Impossible to save post with resource %s. Error is '%s'" % (resource, e))
-                continue
+            instance = Post.remote.get_or_create_from_resource(resource)
 
-            if instance.owners.count() == 0:
-                post_owner = PostOwner.objects.get_or_create(post=instance, owner_content_type=ContentType.objects.get_for_model(page), owner_id=page.id)[0]
+            if instance.owners.using('default').count() == 0:
+                post_owner = PostOwner.objects.get_or_create(post=instance, owner_content_type=page_ct, owner_id=page.pk)[0]
                 instance.owners.add(post_owner)
+
             instances += [instance]
 
         if all:
@@ -224,7 +222,7 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
             log.debug('response objects count - %s, limit - %s, offset - %s' % (len(response.data), limit, offset))
 
             for resource in response.data:
-                instance = Comment.remote.get_or_create_from_resource(resource, {'post_id': self.id})
+                instance = Comment.remote.get_or_create_from_resource(resource, {'post_id': self.pk})
                 log.debug('comments count - %s' % Comment.objects.count())
                 instances |= Comment.objects.filter(pk=instance.pk)
 
@@ -240,8 +238,8 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
 
         # check is generic fields has correct content_type
         if self.author_content_type:
-            allowed_ct_ids = [ct.id for ct in ContentType.objects.get_for_models(Page, User).values()]
-            if self.author_content_type.id not in allowed_ct_ids:
+            allowed_ct_ids = [ct.pk for ct in ContentType.objects.get_for_models(Page, User).values()]
+            if self.author_content_type.pk not in allowed_ct_ids:
                 raise ValueError("'author' field should be Page or User instance")
 
         return super(Post, self).save(*args, **kwargs)
@@ -276,8 +274,8 @@ class PostOwner(models.Model):
 
         # check is generic fields has correct content_type
         if self.owner_content_type:
-            allowed_ct_ids = [ct.id for ct in ContentType.objects.get_for_models(Page, User).values()]
-            if self.owner_content_type.id not in allowed_ct_ids:
+            allowed_ct_ids = [ct.pk for ct in ContentType.objects.get_for_models(Page, User).values()]
+            if self.owner_content_type.pk not in allowed_ct_ids:
                 raise ValueError("'owner' field should be Page or User instance")
 
         return super(PostOwner, self).save(*args, **kwargs)
@@ -315,8 +313,8 @@ class Comment(FacebookGraphIDModel, FacebookLikableModel):
 
         # check is generic fields has correct content_type
         if self.author_content_type:
-            allowed_ct_ids = [ct.id for ct in ContentType.objects.get_for_models(Page, User).values()]
-            if self.author_content_type.id not in allowed_ct_ids:
+            allowed_ct_ids = [ct.pk for ct in ContentType.objects.get_for_models(Page, User).values()]
+            if self.author_content_type.pk not in allowed_ct_ids:
                 raise ValueError("'author' field should be Page or User instance")
 
         return super(Comment, self).save(*args, **kwargs)

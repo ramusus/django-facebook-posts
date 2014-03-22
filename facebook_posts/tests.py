@@ -149,7 +149,7 @@ class FacebookPostsTest(TestCase):
 
     def test_fetch_posts_of_page(self):
 
-        page = PageFactory.create(graph_id=PAGE_ID)
+        page = PageFactory(graph_id=PAGE_ID)
 
         self.assertEqual(Post.objects.count(), 0)
 
@@ -165,3 +165,19 @@ class FacebookPostsTest(TestCase):
 
         self.assertTrue(posts_count1 < posts_count)
         self.assertEqual(posts_count1, len(posts))
+
+
+    def test_fetch_posts_of_page_owners_integrity_problem(self):
+        '''
+        Some posts have owners in response and inside transaction we get
+        IntegrityError: duplicate key value violates unique constraint "facebook_posts_postowner_post_id_6e3cdbee7eca490e_uniq"
+        DETAIL:  Key (post_id, owner_content_type_id, owner_id)=(63087, 82, 1065) already exists.
+        '''
+        page = PageFactory(graph_id=224226267619403)
+
+        self.assertEqual(Post.objects.count(), 0)
+
+        posts = page.fetch_posts(limit=100)
+
+        self.assertEqual(Post.objects.count(), 100)
+        self.assertEqual(Post.objects.count(), len(posts))
