@@ -91,30 +91,28 @@ class FacebookLikableModel(models.Model):
 
     likes_count = models.IntegerField(default=0)
 
+    def update_count_and_get_like_users(self, instances_all, *args, **kwargs):
+        self.like_users = instances_all
+        self.likes_count = instances_all.count()
+        self.save()
+        return instances_all
+
     @atomic
-    def fetch_likes(self, limit=1000, offset=0, delete_all=True):
+    @fetch_all(return_all=update_count_and_get_like_users)
+    def fetch_likes(self, limit=1000, **kwargs):
         '''
         Retrieve and save all likes of post
         '''
-        response = graph('%s/likes' % self.graph_id, limit=limit, offset=offset)
+        ids = []
+        response = graph('%s/likes' % self.graph_id, limit=limit, **kwargs)
         if response:
-            if delete_all:
-                self.like_users.clear()
-
-            response_count = len(response.data)
+            log.debug('response objects count=%s, limit=%s, after=%s' % (len(response.data), limit, kwargs.get('after')))
             for resource in response.data:
                 user = get_or_create_from_small_resource(resource)
-                self.like_users.add(user)
-                log.debug('like users count - %s' % self.like_users.count())
-            log.debug('response objects count - %s, limit - %s, offset - %s' % (response_count, limit, offset))
+                ids += [user.pk]
 
-            if response_count != 0:
-                return self.fetch_likes(limit=limit, offset=offset+response_count, delete_all=False)
-            else:
-                self.likes_count = self.like_users.count()
-                self.save()
+        return User.objects.filter(pk__in=ids), response
 
-        return self.like_users.all()
 
 class Post(FacebookGraphIDModel, FacebookLikableModel):
     class Meta:
@@ -210,23 +208,20 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
         return self.comments.all()
 
     @atomic
-    @fetch_all(return_all=update_count_and_get_comments, default_count=1000, kwargs_count='limit')
-    def fetch_comments(self, limit=1000, offset=0):
+    @fetch_all(return_all=update_count_and_get_comments)
+    def fetch_comments(self, limit=1000, filter='stream', summary=True, **kwargs):
         '''
         Retrieve and save all comments of post
         '''
-        instances = Comment.objects.none()
-
-        response = graph('%s/comments' % self.graph_id, limit=limit, offset=offset)
+        ids = []
+        response = graph('%s/comments' % self.graph_id, limit=limit, filter=filter, summary=int(summary), **kwargs)
         if response:
-            log.debug('response objects count - %s, limit - %s, offset - %s' % (len(response.data), limit, offset))
-
+            log.debug('response objects count=%s, limit=%s, after=%s' % (len(response.data), limit, kwargs.get('after')))
             for resource in response.data:
                 instance = Comment.remote.get_or_create_from_resource(resource, {'post_id': self.pk})
-                log.debug('comments count - %s' % Comment.objects.count())
-                instances |= Comment.objects.filter(pk=instance.pk)
+                ids += [instance.pk]
 
-        return instances
+        return Comment.objects.filter(pk__in=ids), response
 
     def save(self, *args, **kwargs):
         # set exactly Page or User contentTypes, not a child
