@@ -12,6 +12,8 @@ POST1_ID = '19292868552_10150189643478553'
 POST2_ID = '100001341687090_632170373504346'
 COMMENT1_ID = '19292868552_10150475844632302_20258978'
 
+PAGE1_ID = '1411299469098495'
+
 POST_WITH_MANY_LIKES_ID = '19292868552_10151516882688553'
 POST_WITH_MANY_COMMENTS_ID = '19292868552_10150475844632302'
 
@@ -154,7 +156,7 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(comment.likes_count, User.objects.count() - 2)
         self.assertEqual(comment.likes_count, comment.like_users.count())
 
-    def test_fetch_posts_of_page(self):
+    def test_fetch_page_posts(self):
 
         page = PageFactory(graph_id=PAGE_ID)
 
@@ -172,3 +174,17 @@ class FacebookPostsTest(TestCase):
 
         self.assertTrue(posts_count1 < posts_count)
         self.assertEqual(posts_count1, len(posts))
+
+    def test_fetch_page_many_posts(self):
+
+        page = PageFactory(graph_id=PAGE1_ID)
+
+        self.assertEqual(Post.objects.count(), 0)
+
+        posts = page.fetch_posts(since=datetime(2014, 1, 1))
+
+        posts_count = Post.objects.count()
+
+        self.assertTrue(posts_count > 250)
+        self.assertEqual(posts_count, len(posts))
+        self.assertTrue(posts.filter(created_time__lte=datetime(2014, 1, 7)).count(), 1)

@@ -9,10 +9,11 @@ from django.contrib.contenttypes import generic
 from facebook_api import fields
 from facebook_api.utils import graph
 from facebook_api.decorators import fetch_all
-from facebook_api.models import FacebookGraphIDModel, FacebookGraphManager
+from facebook_api.models import FacebookGraphIDModel, FacebookGraphManager, MASTER_DATABASE
 from facebook_applications.models import Application
 from facebook_users.models import User
 from facebook_pages.models import Page
+from datetime import datetime
 import logging
 import time
 import re
@@ -39,51 +40,53 @@ def get_or_create_from_small_resource(resource):
 
 class PostFacebookGraphManager(FacebookGraphManager):
 
+    def update_count_and_get_posts(self, instances, page, *args, **kwargs):
+        page.posts_count = page.wall_posts.count()
+        page.save()
+        return instances
+
     @atomic
-    def fetch_page_wall(self, page, all=False, limit=1000, offset=0, until=None, since=None):
+    @fetch_all(return_all=update_count_and_get_posts, always_all=True, paging_next_arg_name='until')
+    def fetch_page_wall(self, page, limit=1000, offset=0, until=None, since=None, **kwargs):
+        '''
+        Arguments:
+         * until|since - timestamp or datetime
+        '''
         kwargs = {
             'limit': int(limit),
             'offset': int(offset),
         }
-        if until:
-            kwargs['until'] = int(time.mktime(until.timetuple()))
-        if since:
-            kwargs['since'] = int(time.mktime(since.timetuple()))
+        for field in ['until', 'since']:
+            value = locals()[field]
+            if isinstance(value, datetime):
+                kwargs[field] = int(time.mktime(value.timetuple()))
+            elif value is not None:
+                try:
+                    kwargs[field] = int(value)
+                except TypeError:
+                    raise ValueError('Wrong type of argument %s: %s' % (field, type(value)))
 
         response = graph('%s/posts' % page.graph_id, **kwargs)
-        # TODO: think about this condition more deeply
-        if response is None:
-            return page.wall_posts.all()
         # TODO: move this checking to level up
         if 'error_code' in response and response['error_code'] == 1:
-            return self.fetch_page_wall(page, all, limit, offset, until)
+            return self.fetch_page_wall(page, all, limit, offset, until, **kwargs)
 
         log.debug('response objects count - %s' % len(response.data))
 
-        instances = []
+        ids = []
         page_ct = ContentType.objects.get_for_model(page)
-        for resource in response.data:
-            instance = Post.remote.get_or_create_from_resource(resource)
+        if response:
+            log.debug('response objects count=%s, limit=%s, after=%s' % (len(response.data), limit, kwargs.get('after')))
+            for resource in response.data:
+                instance = Post.remote.get_or_create_from_resource(resource)
 
-            if instance.owners.using('default').count() == 0:
-                post_owner = PostOwner.objects.get_or_create(post=instance, owner_content_type=page_ct, owner_id=page.pk)[0]
-                instance.owners.add(post_owner)
+                if instance.owners.using(MASTER_DATABASE).count() == 0:
+                    post_owner = PostOwner.objects.get_or_create(post=instance, owner_content_type=page_ct, owner_id=page.pk)[0]
+                    instance.owners.add(post_owner)
 
-            instances += [instance]
+                ids += [instance.pk]
 
-        if all:
-            response_count = len(instances)
-            log.debug('objects count - %s, limit - %s, offset - %s, until - %s' % (response_count, limit, offset, until))
-
-            if response_count != 0:
-                return self.fetch_page_wall(page, all, limit, until=instances[len(instances)-1].created_time)
-            else:
-                page.posts_count = page.wall_posts.count()
-                page.save()
-
-            instances = page.wall_posts.all()
-
-        return instances
+        return Post.objects.filter(pk__in=ids), response
 
 class FacebookLikableModel(models.Model):
     class Meta:
@@ -91,14 +94,14 @@ class FacebookLikableModel(models.Model):
 
     likes_count = models.IntegerField(default=0)
 
-    def update_count_and_get_like_users(self, instances_all, *args, **kwargs):
-        self.like_users = instances_all
-        self.likes_count = instances_all.count()
+    def update_count_and_get_like_users(self, instances, *args, **kwargs):
+        self.like_users = instances
+        self.likes_count = instances.count()
         self.save()
-        return instances_all
+        return instances
 
     @atomic
-    @fetch_all(return_all=update_count_and_get_like_users)
+    @fetch_all(return_all=update_count_and_get_like_users, paging_next_arg_name='after')
     def fetch_likes(self, limit=1000, **kwargs):
         '''
         Retrieve and save all likes of post
@@ -202,13 +205,13 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
                 if owner:
                     self._external_links_to_add += [('owners', PostOwner(post=self, owner=owner))]
 
-    def update_count_and_get_comments(self, *args, **kwargs):
-        self.comments_count = self.comments.count()
+    def update_count_and_get_comments(self, instances, *args, **kwargs):
+        self.comments_count = instances.count()
         self.save()
-        return self.comments.all()
+        return instances.all()
 
     @atomic
-    @fetch_all(return_all=update_count_and_get_comments)
+    @fetch_all(return_all=update_count_and_get_comments, paging_next_arg_name='after')
     def fetch_comments(self, limit=1000, filter='stream', summary=True, **kwargs):
         '''
         Retrieve and save all comments of post
@@ -267,11 +270,11 @@ class PostOwner(models.Model):
                     setattr(self, '%s_content_type' % field_name, ContentType.objects.get_for_model(allowed_model))
                     break
 
-        # check is generic fields has correct content_type
+        # check if generic fields has correct content_type
         if self.owner_content_type:
-            allowed_ct_ids = [ct.pk for ct in ContentType.objects.get_for_models(Page, User).values()]
+            allowed_ct_ids = [ct.pk for ct in ContentType.objects.get_for_models(Page, User, Application).values()]
             if self.owner_content_type.pk not in allowed_ct_ids:
-                raise ValueError("'owner' field should be Page or User instance")
+                raise ValueError("'owner' field should be Page or User instance, not %s" % type(self.owner))
 
         return super(PostOwner, self).save(*args, **kwargs)
 
