@@ -13,6 +13,7 @@ from facebook_api.models import FacebookGraphIDModel, FacebookGraphManager, MAST
 from facebook_applications.models import Application
 from facebook_users.models import User
 from facebook_pages.models import Page
+from m2m_history.fields import ManyToManyHistoryField
 from datetime import datetime
 import logging
 import time
@@ -122,7 +123,7 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
         verbose_name = 'Facebook post'
         verbose_name_plural = 'Facebook posts'
 
-    like_users = models.ManyToManyField(User, related_name='like_posts')
+    like_users = ManyToManyHistoryField(User, related_name='like_posts')
 
     # in API field called `from`
     author_json = fields.JSONField(null=True, help_text='Information about the user who posted the message') # object containing the name and Facebook id of the user who posted the message
@@ -283,7 +284,7 @@ class Comment(FacebookGraphIDModel, FacebookLikableModel):
         verbose_name = 'Facebook comment'
         verbose_name_plural = 'Facebook comments'
 
-    like_users = models.ManyToManyField(User, related_name='like_comments')
+    like_users = ManyToManyHistoryField(User, related_name='like_comments')
 
     post = models.ForeignKey(Post, related_name='comments')
     author_json = fields.JSONField(null=True, help_text='Information about the user who posted the comment') # object containing the name and Facebook id of the user who posted the message
