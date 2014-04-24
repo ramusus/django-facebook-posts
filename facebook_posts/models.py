@@ -67,24 +67,25 @@ class PostFacebookGraphManager(FacebookGraphManager):
                     raise ValueError('Wrong type of argument %s: %s' % (field, type(value)))
 
         response = graph('%s/posts' % page.graph_id, **kwargs)
-        # TODO: move this checking to level up
-        if 'error_code' in response and response['error_code'] == 1:
-            return self.fetch_page_wall(page, all, limit, offset, until, **kwargs)
-
-        log.debug('response objects count - %s' % len(response.data))
-
         ids = []
-        page_ct = ContentType.objects.get_for_model(page)
         if response:
-            log.debug('response objects count=%s, limit=%s, after=%s' % (len(response.data), limit, kwargs.get('after')))
-            for resource in response.data:
-                instance = Post.remote.get_or_create_from_resource(resource)
+            # TODO: move this checking to level up
+            if 'error_code' in response and response['error_code'] == 1:
+                return self.fetch_page_wall(page, all, limit, offset, until, **kwargs)
 
-                if instance.owners.using(MASTER_DATABASE).count() == 0:
-                    post_owner = PostOwner.objects.get_or_create(post=instance, owner_content_type=page_ct, owner_id=page.pk)[0]
-                    instance.owners.add(post_owner)
+            log.debug('response objects count - %s' % len(response.data))
 
-                ids += [instance.pk]
+            page_ct = ContentType.objects.get_for_model(page)
+            if response:
+                log.debug('response objects count=%s, limit=%s, after=%s' % (len(response.data), limit, kwargs.get('after')))
+                for resource in response.data:
+                    instance = Post.remote.get_or_create_from_resource(resource)
+
+                    if instance.owners.using(MASTER_DATABASE).count() == 0:
+                        post_owner = PostOwner.objects.get_or_create(post=instance, owner_content_type=page_ct, owner_id=page.pk)[0]
+                        instance.owners.add(post_owner)
+
+                    ids += [instance.pk]
 
         return Post.objects.filter(pk__in=ids), response
 
