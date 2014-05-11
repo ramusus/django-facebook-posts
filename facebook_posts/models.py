@@ -69,10 +69,6 @@ class PostFacebookGraphManager(FacebookGraphManager):
         response = graph('%s/posts' % page.graph_id, **kwargs)
         ids = []
         if response:
-            # TODO: move this checking to level up
-            if 'error_code' in response and response['error_code'] == 1:
-                return self.fetch_page_wall(page, all, limit, offset, until, **kwargs)
-
             log.debug('response objects count - %s' % len(response.data))
 
             page_ct = ContentType.objects.get_for_model(page)
