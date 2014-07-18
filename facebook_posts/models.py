@@ -47,7 +47,7 @@ class PostFacebookGraphManager(FacebookGraphManager):
 
     @atomic
     @fetch_all(return_all=update_count_and_get_posts, always_all=True, paging_next_arg_name='until')
-    def fetch_page_wall(self, page, limit=1000, offset=0, until=None, since=None, **kwargs):
+    def fetch_page_wall(self, page, limit=250, offset=0, until=None, since=None, **kwargs):
         '''
         Arguments:
          * until|since - timestamp or datetime
