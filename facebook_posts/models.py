@@ -20,6 +20,9 @@ import re
 
 log = logging.getLogger('facebook_posts')
 
+class UnknownResourceType(Exception):
+    pass
+
 def get_or_create_from_small_resource(resource):
     '''
     Return instance of right type based on dictionary resource from Facebook API Graph
@@ -36,7 +39,8 @@ def get_or_create_from_small_resource(resource):
     elif keys == ['id','name','namespace']:
         # resource is a application
         return Application.objects.get_or_create(graph_id=resource['id'], defaults=defaults)[0]
-        pass
+    else:
+        raise UnknownResourceType("Resource with strange keys: %s" % keys)
 
 class PostFacebookGraphManager(FacebookGraphManager):
 
@@ -108,8 +112,11 @@ class FacebookLikableModel(models.Model):
         if response:
             log.debug('response objects count=%s, limit=%s, after=%s' % (len(response.data), limit, kwargs.get('after')))
             for resource in response.data:
-                user = get_or_create_from_small_resource(resource)
-                ids += [user.pk]
+                try:
+                    user = get_or_create_from_small_resource(resource)
+                    ids += [user.pk]
+                except UnknownResourceType:
+                    continue
 
         return User.objects.filter(pk__in=ids), response
 
