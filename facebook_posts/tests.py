@@ -38,7 +38,7 @@ class FacebookPostsTest(TestCase):
         self.assertTrue(len(post.icon) > 0)
         self.assertTrue(len(post.picture) > 20)
 
-    def test_fetch_post_application(self):
+    def test_post_fetch_application(self):
 
         Post.remote.fetch(POST1_ID)
         post = Post.objects.all()[0]
@@ -54,7 +54,7 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(post.application.name, application_json['name'])
         self.assertEqual(post.application.namespace, application_json['namespace'])
 
-    def test_fetch_post_authors_owners(self):
+    def test_post_fetch_authors_owners(self):
 
         # post on the page by page
         author = {
@@ -99,7 +99,7 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(postowner.owner.name, owners[0]['name'])
         self.assertEqual(postowner.owner.graph_id, owners[0]['id'])
 
-    def test_fetch_post_comments(self):
+    def test_post_fetch_comments(self):
 
         post = PostFactory(graph_id=POST_WITH_MANY_COMMENTS_ID)
 
@@ -129,7 +129,7 @@ class FacebookPostsTest(TestCase):
         self.assertTrue(isinstance(comment.created_time, datetime))
         self.assertTrue(comment.likes_count > 5)
 
-    def test_fetch_post_likes(self):
+    def test_post_fetch_likes(self):
 
         post = PostFactory(graph_id=POST_WITH_MANY_LIKES_ID)
 
@@ -142,7 +142,7 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(post.likes_count, User.objects.count() - 1)
         self.assertEqual(post.likes_count, post.like_users.count())
 
-    def test_fetch_comment_likes(self):
+    def test_comment_fetch_likes(self):
 
         post = PostFactory(graph_id=POST1_ID)
         comment = CommentFactory(graph_id=COMMENT1_ID, post=post)
@@ -156,7 +156,20 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(comment.likes_count, User.objects.count() - 2)
         self.assertEqual(comment.likes_count, comment.like_users.count())
 
-    def test_fetch_page_posts(self):
+    def test_post_fetch_shares(self):
+
+        post = PostFactory(graph_id=POST_WITH_MANY_LIKES_ID)
+
+        self.assertEqual(post.shares_users.count(), 0)
+        self.assertEqual(User.objects.count(), 1)
+
+        users = post.fetch_shares(all=True)
+        self.assertTrue(users.count() >= 40)
+        self.assertEqual(post.shares_count, users.count())
+        self.assertEqual(post.shares_count, User.objects.count() - 1)
+        self.assertEqual(post.shares_count, post.shares_users.count())
+
+    def test_page_fetch_posts(self):
 
         page = PageFactory(graph_id=PAGE_ID)
 
@@ -175,7 +188,7 @@ class FacebookPostsTest(TestCase):
         self.assertTrue(posts_count1 < posts_count)
         self.assertEqual(posts_count1, len(posts))
 
-    def test_fetch_page_many_posts(self):
+    def test_page_fetch_many_posts(self):
 
         page = PageFactory(graph_id=PAGE1_ID)
 
