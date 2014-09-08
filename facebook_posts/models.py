@@ -13,7 +13,9 @@ from facebook_api.models import FacebookGraphIDModel, FacebookGraphManager, MAST
 from facebook_applications.models import Application
 from facebook_users.models import User
 from facebook_pages.models import Page
+from m2m_history.fields import ManyToManyHistoryField
 from datetime import datetime
+import dateutil.parser
 import logging
 import time
 import re
@@ -30,8 +32,10 @@ def get_or_create_from_small_resource(resource):
     keys = sorted(resource.keys())
     defaults = dict(resource)
     del defaults['id']
-    if keys == ['category','id','name']:
+    if keys == ['category','id','name'] or keys == ['category','category_list','id','name']:
         # resource is a page
+        if 'category_list' in defaults:
+            del defaults['category_list']
         return Page.objects.get_or_create(graph_id=resource['id'], defaults=defaults)[0]
     elif keys == ['id','name']:
         # resource is a user
@@ -126,8 +130,6 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
         verbose_name = 'Facebook post'
         verbose_name_plural = 'Facebook posts'
 
-    like_users = models.ManyToManyField(User, related_name='like_posts')
-
     # in API field called `from`
     author_json = fields.JSONField(null=True, help_text='Information about the user who posted the message') # object containing the name and Facebook id of the user who posted the message
     owners_json = fields.JSONField(null=True, help_text='Profiles mentioned or targeted in this post') # Contains in data an array of objects, each with the name and Facebook id of the user
@@ -179,6 +181,9 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
 
     shares_count = models.IntegerField(default=0)
 
+    like_users = ManyToManyHistoryField(User, related_name='like_posts')
+    shares_users = ManyToManyHistoryField(User, related_name='shares_posts')
+
     objects = models.Manager()
     remote = PostFacebookGraphManager()
 
@@ -205,7 +210,10 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
 
         if self.owners.count() == 0 and self.owners_json:
             for owner_json in self.owners_json:
-                owner = get_or_create_from_small_resource(owner_json)
+                try:
+                    owner = get_or_create_from_small_resource(owner_json)
+                except UnknownResourceType:
+                    continue
                 if owner:
                     self._external_links_to_add += [('owners', PostOwner(post=self, owner=owner))]
 
@@ -229,6 +237,49 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
                 ids += [instance.pk]
 
         return Comment.objects.filter(pk__in=ids), response
+
+    def update_count_and_get_shares_users(self, instances, *args, **kwargs):
+        self.shares_users = instances
+        self.shares_count = instances.count()
+        self.save()
+        return instances
+
+    @atomic
+    @fetch_all(return_all=update_count_and_get_shares_users, paging_next_arg_name='after')
+    def fetch_shares(self, limit=1000, **kwargs):
+        '''
+        Retrieve and save all shares of post
+        '''
+        ids = []
+        response = graph('%s/sharedposts' % self.graph_id.split('_')[1], **kwargs)
+
+        if response:
+
+            timestamps = dict([(int(post['from']['id']), dateutil.parser.parse(post['created_time'])) for post in response.data])
+            ids_new = timestamps.keys()
+            ids_current = self.shares_users.get_query_set(only_pk=True).using(MASTER_DATABASE).exclude(time_from=None)
+            ids_add = set(ids_new).difference(set(ids_current))
+            ids_remove = set(ids_current).difference(set(ids_new))
+
+            log.debug('response objects count=%s, limit=%s, after=%s' % (len(response.data), limit, kwargs.get('after')))
+            for resource in response.data:
+                if sorted(resource['from'].keys()) == ['id','name']:
+                    try:
+                        user = get_or_create_from_small_resource(resource['from'])
+                        ids += [user.graph_id]
+                    except UnknownResourceType:
+                        continue
+
+            m2m_model = self.shares_users.through
+
+            # remove old shares without time_from
+            self.shares_users.get_query_set_through().filter(time_from=None).delete()
+
+            # add new shares
+            get_share_date = lambda id: timestamps[id] if id in timestamps else self.created_time
+            m2m_model.objects.bulk_create([m2m_model(**{'user_id': id, 'post_id': self.pk, 'time_from': get_share_date(id)}) for id in ids_add])
+
+        return User.objects.filter(graph_id__in=ids), response
 
     def save(self, *args, **kwargs):
         # set exactly Page or User contentTypes, not a child
@@ -287,8 +338,6 @@ class Comment(FacebookGraphIDModel, FacebookLikableModel):
         verbose_name = 'Facebook comment'
         verbose_name_plural = 'Facebook comments'
 
-    like_users = models.ManyToManyField(User, related_name='like_comments')
-
     post = models.ForeignKey(Post, related_name='comments')
     author_json = fields.JSONField(null=True, help_text='Information about the user who posted the comment') # object containing the name and Facebook id of the user who posted the message
 
@@ -301,6 +350,8 @@ class Comment(FacebookGraphIDModel, FacebookLikableModel):
 
     can_remove = models.BooleanField(default=False)
     user_likes = models.BooleanField(default=False)
+
+    like_users = ManyToManyHistoryField(User, related_name='like_comments')
 
     objects = models.Manager()
     remote = FacebookGraphManager()
