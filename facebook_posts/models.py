@@ -257,19 +257,20 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
 
             timestamps = dict([(int(post['from']['id']), dateutil.parser.parse(post['created_time'])) for post in response.data])
             ids_new = timestamps.keys()
-            ids_current = self.shares_users.get_query_set(only_pk=True).using(MASTER_DATABASE).exclude(time_from=None)
+            # becouse we should use local pk, instead of remote, remove it after pk -> graph_id
+            ids_current = map(int, User.objects.filter(pk__in=self.shares_users.get_query_set(only_pk=True).using(MASTER_DATABASE).exclude(time_from=None)).values_list('graph_id', flat=True))
             ids_add = set(ids_new).difference(set(ids_current))
             ids_add_pairs = []
             ids_remove = set(ids_current).difference(set(ids_new))
 
             log.debug('response objects count=%s, limit=%s, after=%s' % (len(response.data), limit, kwargs.get('after')))
             for post in response.data:
-                if sorted(post['from'].keys()) == ['id','name']:
+                graph_id = int(post['from']['id'])
+                if graph_id in ids_add and sorted(post['from'].keys()) == ['id','name']:
                     try:
                         user = get_or_create_from_small_resource(post['from'])
                         ids += [user.pk]
-                        if user.pk in ids_add:
-                            ids_add_pairs += [(int(post['from']['id']), user.pk)]  # becouse we should use local pk, instead of remote
+                        ids_add_pairs += [(graph_id, user.pk)]  # becouse we should use local pk, instead of remote
                     except UnknownResourceType:
                         continue
 
