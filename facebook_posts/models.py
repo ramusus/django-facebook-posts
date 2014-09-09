@@ -266,11 +266,12 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
             log.debug('response objects count=%s, limit=%s, after=%s' % (len(response.data), limit, kwargs.get('after')))
             for post in response.data:
                 graph_id = int(post['from']['id'])
-                if graph_id in ids_add and sorted(post['from'].keys()) == ['id','name']:
+                if sorted(post['from'].keys()) == ['id','name']:
                     try:
                         user = get_or_create_from_small_resource(post['from'])
                         ids += [user.pk]
-                        ids_add_pairs += [(graph_id, user.pk)]  # becouse we should use local pk, instead of remote
+                        if graph_id in ids_add:
+                            ids_add_pairs += [(graph_id, user.pk)]  # becouse we should use local pk, instead of remote
                     except UnknownResourceType:
                         continue
 
