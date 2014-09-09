@@ -169,6 +169,10 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(post.shares_count, User.objects.count() - 1)
         self.assertEqual(post.shares_count, post.shares_users.count())
 
+        post = PostFactory(graph_id='1411299469098495_1534163126812128')
+        users = post.fetch_shares(all=True)
+        self.assertTrue(users.count() >= 8)
+
     def test_page_fetch_posts(self):
 
         page = PageFactory(graph_id=PAGE_ID)

@@ -259,14 +259,17 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
             ids_new = timestamps.keys()
             ids_current = self.shares_users.get_query_set(only_pk=True).using(MASTER_DATABASE).exclude(time_from=None)
             ids_add = set(ids_new).difference(set(ids_current))
+            ids_add_pairs = []
             ids_remove = set(ids_current).difference(set(ids_new))
 
             log.debug('response objects count=%s, limit=%s, after=%s' % (len(response.data), limit, kwargs.get('after')))
-            for resource in response.data:
-                if sorted(resource['from'].keys()) == ['id','name']:
+            for post in response.data:
+                if sorted(post['from'].keys()) == ['id','name']:
                     try:
-                        user = get_or_create_from_small_resource(resource['from'])
-                        ids += [user.graph_id]
+                        user = get_or_create_from_small_resource(post['from'])
+                        ids += [user.pk]
+                        if user.pk in ids_add:
+                            ids_add_pairs += [(int(post['from']['id']), user.pk)]  # becouse we should use local pk, instead of remote
                     except UnknownResourceType:
                         continue
 
@@ -277,9 +280,9 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
 
             # add new shares
             get_share_date = lambda id: timestamps[id] if id in timestamps else self.created_time
-            m2m_model.objects.bulk_create([m2m_model(**{'user_id': id, 'post_id': self.pk, 'time_from': get_share_date(id)}) for id in ids_add])
+            m2m_model.objects.bulk_create([m2m_model(**{'user_id': pk, 'post_id': self.pk, 'time_from': get_share_date(graph_id)}) for graph_id, pk in ids_add_pairs])
 
-        return User.objects.filter(graph_id__in=ids), response
+        return User.objects.filter(pk__in=ids), response
 
     def save(self, *args, **kwargs):
         # set exactly Page or User contentTypes, not a child
