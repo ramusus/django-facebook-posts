@@ -240,7 +240,8 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
 
     def update_count_and_get_shares_users(self, instances, *args, **kwargs):
         self.shares_users = instances
-        self.shares_count = instances.count()
+        # becouse here are not all shares: "Some posts may not appear here because of their privacy settings."
+#        self.shares_count = instances.count()
         self.save()
         return instances
 
@@ -270,7 +271,7 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
                     try:
                         user = get_or_create_from_small_resource(post['from'])
                         ids += [user.pk]
-                        # this id in add list and still not in add_pair (sometimes there are duplicates)
+                        # this id in add list and still not in add_pairs (sometimes in response are duplicates)
                         if graph_id in ids_add and graph_id not in map(lambda i:i[0], ids_add_pairs):
                             ids_add_pairs += [(graph_id, user.pk)]  # becouse we should use local pk, instead of remote
                     except UnknownResourceType:
