@@ -192,6 +192,10 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
 
     def parse(self, response):
 
+        # shared_stories has `object_id` not int, but like 252974534827155_1073741878
+        if 'object_id' in response and '_' in response['object_id']:
+            del response['object_id']
+
         if 'from' in response:
             response['author_json'] = response.pop('from')
         if 'to' in response and len(response['to']['data']):
@@ -310,6 +314,7 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
         except:
             owner_screenname = ''
         return super(Post, self).get_url('%s/posts/%s' % (owner_screenname, self.graph_id.split('_')[1]))
+
 
 class PostOwner(models.Model):
     '''

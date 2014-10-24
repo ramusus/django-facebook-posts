@@ -178,6 +178,13 @@ class FacebookPostsTest(TestCase):
         users = post.fetch_shares(all=True)
         self.assertEqual(users.count(), count)
 
+    def test_page_fetch_posts_with_strange_object_id(self):
+
+        instance = PageFactory(graph_id=252974534827155)
+        posts = instance.fetch_posts(since=datetime(2014,9,2))
+
+        self.assertEqual(posts.filter(graph_id='252974534827155_323648421093099')[0].object_id, None)
+
     def test_page_fetch_posts(self):
 
         page = PageFactory(graph_id=PAGE_ID)
