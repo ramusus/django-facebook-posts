@@ -29,6 +29,17 @@ def get_or_create_from_small_resource(resource):
     '''
     Return instance of right type based on dictionary resource from Facebook API Graph
     '''
+    try:
+        return Page.objects.get(graph_id=resource['id'])
+    except Page.DoesNotExist:
+        try:
+            return User.objects.get(graph_id=resource['id'])
+        except User.DoesNotExist:
+            try:
+                return Application.objects.get(graph_id=resource['id'])
+            except Application.DoesNotExist:
+                pass
+
     keys = sorted(resource.keys())
     defaults = dict(resource)
     del defaults['id']
@@ -213,13 +224,14 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
             self.author = get_or_create_from_small_resource(self.author_json)
 
         if self.owners.count() == 0 and self.owners_json:
+            self._external_links_to_add['owners'] = []
             for owner_json in self.owners_json:
                 try:
                     owner = get_or_create_from_small_resource(owner_json)
                 except UnknownResourceType:
                     continue
                 if owner:
-                    self._external_links_to_add += [('owners', PostOwner(post=self, owner=owner))]
+                    self._external_links_to_add['owners'] += [PostOwner(post=self, owner=owner)]
 
     def update_count_and_get_comments(self, instances, *args, **kwargs):
         self.comments_count = instances.count()
@@ -390,8 +402,12 @@ class Comment(FacebookGraphIDModel, FacebookLikableModel):
         if 'like_count' in response:
             response['likes_count'] = response.pop('like_count')
 
-        # transform graph_id from {POST_ID}_{COMMENT_ID} -> {PAGE_ID}_{POST_ID}_{COMMENT_ID}
-        if response['id'].count('_') == 1:
+        # transform graph_id from -> {PAGE_ID}_{POST_ID}_{COMMENT_ID}
+        if response['id'].count('_') == 0:
+            # group posts comments {COMMENT_ID} -> {PAGE_ID}_{POST_ID}_{COMMENT_ID}
+            response['id'] = '_'.join([self.post.graph_id, response['id']])
+        elif response['id'].count('_') == 1:
+            # page posts comments {POST_ID}_{COMMENT_ID} -> {PAGE_ID}_{POST_ID}_{COMMENT_ID}
             response['id'] = re.sub(r'^\d+', self.post.graph_id, response['id'])
 
         super(Comment, self).parse(response)
