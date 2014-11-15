@@ -55,15 +55,15 @@ class PostFacebookGraphManager(FacebookGraphManager):
 
     @atomic
     @fetch_all(return_all=update_count_and_get_posts, always_all=True, paging_next_arg_name='until')
-    def fetch_page_wall(self, page, limit=250, offset=0, until=None, since=None, **kwargs):
+    def fetch_page_wall(self, page, limit=250, offset=0, until=None, since=None, edge='posts', **kwargs):
         '''
         Arguments:
          * until|since - timestamp or datetime
         '''
-        kwargs = {
+        kwargs.update({
             'limit': int(limit),
             'offset': int(offset),
-        }
+        })
         for field in ['until', 'since']:
             value = locals()[field]
             if isinstance(value, datetime):
@@ -74,7 +74,7 @@ class PostFacebookGraphManager(FacebookGraphManager):
                 except TypeError:
                     raise ValueError('Wrong type of argument %s: %s' % (field, type(value)))
 
-        response = graph('%s/posts' % page.graph_id, **kwargs)
+        response = graph('%s/%s' % (page.graph_id, edge), **kwargs)
         ids = []
         if response:
             log.debug('response objects count - %s' % len(response.data))
@@ -191,6 +191,10 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
         return '%s: %s' % (unicode(self.author), self.message or self.story)
 
     def parse(self, response):
+
+        # shared_stories has `object_id` not int, but like 252974534827155_1073741878
+        if 'object_id' in response and '_' in response['object_id']:
+            del response['object_id']
 
         if 'from' in response:
             response['author_json'] = response.pop('from')
@@ -310,6 +314,7 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
         except:
             owner_screenname = ''
         return super(Post, self).get_url('%s/posts/%s' % (owner_screenname, self.graph_id.split('_')[1]))
+
 
 class PostOwner(models.Model):
     '''

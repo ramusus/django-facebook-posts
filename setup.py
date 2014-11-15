@@ -15,9 +15,10 @@ setup(
     zip_safe=False, # because we're including media that Django needs
     install_requires=[
         'django-facebook-api>=0.1.18',
-        'django-facebook_applications>=0.1.0',
-        'django-facebook_users>=0.1.0',
-        'django-facebook_pages>=0.1.3',
+        'django-facebook-applications>=0.1.0',
+        'django-facebook-users>=0.1.0',
+        'django-facebook-pages>=0.1.3',
+        'django-m2m-history>=0.1.1',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',

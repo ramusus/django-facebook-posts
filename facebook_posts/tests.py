@@ -13,6 +13,7 @@ POST2_ID = '100001341687090_632170373504346'
 COMMENT1_ID = '19292868552_10150475844632302_20258978'
 
 PAGE1_ID = '1411299469098495'
+GROUP_CLOSED_ID = '167276666692692'
 
 POST_WITH_MANY_LIKES_ID = '19292868552_10151516882688553'
 POST_WITH_MANY_COMMENTS_ID = '19292868552_10150475844632302'
@@ -178,6 +179,13 @@ class FacebookPostsTest(TestCase):
         users = post.fetch_shares(all=True)
         self.assertEqual(users.count(), count)
 
+    def test_page_fetch_posts_with_strange_object_id(self):
+
+        instance = PageFactory(graph_id=252974534827155)
+        posts = instance.fetch_posts(since=datetime(2014,9,2))
+
+        self.assertEqual(posts.filter(graph_id='252974534827155_323648421093099')[0].object_id, None)
+
     def test_page_fetch_posts(self):
 
         page = PageFactory(graph_id=PAGE_ID)
@@ -196,6 +204,16 @@ class FacebookPostsTest(TestCase):
 
         self.assertTrue(posts_count1 < posts_count)
         self.assertEqual(posts_count1, len(posts))
+
+#     def test_group_closed_fetch_posts(self):
+#
+#         page = PageFactory(graph_id=GROUP_CLOSED_ID)
+#
+#         self.assertEqual(Post.objects.count(), 0)
+#
+#         posts = page.fetch_posts(all=True)
+#
+#         self.assertTrue(len(posts) > 0) # ensure user has access to closed group
 
     def test_page_fetch_many_posts(self):
 
