@@ -320,12 +320,21 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
 
         return super(Post, self).save(*args, **kwargs)
 
-    def get_url(self):
+    @property
+    def slug(self):
+        return self.username or self.graph_id
+
+    @property
+    def owner_slug(self):
         try:
-            owner_screenname = self.owners.all()[0].owner.username
-        except:
-            owner_screenname = ''
-        return super(Post, self).get_url('%s/posts/%s' % (owner_screenname, self.graph_id.split('_')[1]))
+            owner = self.owners.all()[0].owner
+            return owner.username or owner.graph_id
+        except IndexError:
+            return''
+
+    @property
+    def slug(self):
+        return '%s/posts/%s' % (self.owner_slug, self.graph_id.split('_')[1])
 
 
 class PostOwner(models.Model):
@@ -415,10 +424,8 @@ class Comment(FacebookGraphIDModel, FacebookLikableModel):
         if self.author is None and self.author_json:
             self.author = get_or_create_from_small_resource(self.author_json)
 
-    def get_url(self):
-        try:
-            owner_screenname = self.post.owners.all()[0].owner.username
-        except:
-            owner_screenname = ''
-        post_id, comment_id = self.graph_id.split('_')[1:]
-        return super(Comment, self).get_url('%s/posts/%s?comment_id=%s' % (owner_screenname, post_id, comment_id))
+    @property
+    def slug(self):
+        comment_id = self.graph_id.split('_')[-1]
+        return '%s?comment_id=%s' % (self.post.slug, comment_id)
+

@@ -5,8 +5,10 @@ from datetime import datetime
 import factory
 import random
 
+
 class PostOwnerFactory(factory.DjangoModelFactory):
     FACTORY_FOR = PostOwner
+
 
 class PostFactory(factory.DjangoModelFactory):
     FACTORY_FOR = Post
@@ -16,6 +18,7 @@ class PostFactory(factory.DjangoModelFactory):
 #    owners = factory.SubFactory(UserFactory)
     author = factory.SubFactory(UserFactory)
     graph_id = factory.LazyAttributeSequence(lambda o, n: '%s_%s' % (n, n))
+
 
 class CommentFactory(factory.DjangoModelFactory):
     FACTORY_FOR = Comment
