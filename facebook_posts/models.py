@@ -108,6 +108,7 @@ class FacebookLikableModel(models.Model):
     class Meta:
         abstract = True
 
+#    like_users = ManyToManyHistoryField(User, related_name='like_%(class)ss')
     likes_count = models.IntegerField(default=0)
 
     def update_count_and_get_like_users(self, instances, *args, **kwargs):
@@ -297,6 +298,8 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
 
             # remove old shares without time_from
             self.shares_users.get_query_set_through().filter(time_from=None).delete()
+            # in case some ids_add already left
+            self.shares_users.get_query_set_through().filter(post_id=self.pk, user_id__in=map(lambda i:i[1], ids_add_pairs)).delete()
 
             # add new shares
             get_share_date = lambda id: timestamps[id] if id in timestamps else self.created_time
@@ -320,12 +323,21 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
 
         return super(Post, self).save(*args, **kwargs)
 
-    def get_url(self):
+    @property
+    def slug(self):
+        return self.username or self.graph_id
+
+    @property
+    def owner_slug(self):
         try:
-            owner_screenname = self.owners.all()[0].owner.username
-        except:
-            owner_screenname = ''
-        return super(Post, self).get_url('%s/posts/%s' % (owner_screenname, self.graph_id.split('_')[1]))
+            owner = self.owners.all()[0].owner
+            return owner.username or owner.graph_id
+        except IndexError:
+            return''
+
+    @property
+    def slug(self):
+        return '%s/posts/%s' % (self.owner_slug, self.graph_id.split('_')[1])
 
 
 class PostOwner(models.Model):
@@ -415,10 +427,8 @@ class Comment(FacebookGraphIDModel, FacebookLikableModel):
         if self.author is None and self.author_json:
             self.author = get_or_create_from_small_resource(self.author_json)
 
-    def get_url(self):
-        try:
-            owner_screenname = self.post.owners.all()[0].owner.username
-        except:
-            owner_screenname = ''
-        post_id, comment_id = self.graph_id.split('_')[1:]
-        return super(Comment, self).get_url('%s/posts/%s?comment_id=%s' % (owner_screenname, post_id, comment_id))
+    @property
+    def slug(self):
+        comment_id = self.graph_id.split('_')[-1]
+        return '%s?comment_id=%s' % (self.post.slug, comment_id)
+
