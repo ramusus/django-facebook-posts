@@ -108,6 +108,7 @@ class FacebookLikableModel(models.Model):
     class Meta:
         abstract = True
 
+#    like_users = ManyToManyHistoryField(User, related_name='like_%(class)ss')
     likes_count = models.IntegerField(default=0)
 
     def update_count_and_get_like_users(self, instances, *args, **kwargs):
@@ -297,6 +298,8 @@ class Post(FacebookGraphIDModel, FacebookLikableModel):
 
             # remove old shares without time_from
             self.shares_users.get_query_set_through().filter(time_from=None).delete()
+            # in case some ids_add already left
+            self.shares_users.get_query_set_through().filter(post_id=self.pk, user_id__in=map(lambda i:i[1], ids_add_pairs)).delete()
 
             # add new shares
             get_share_date = lambda id: timestamps[id] if id in timestamps else self.created_time
