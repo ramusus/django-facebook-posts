@@ -15,13 +15,24 @@ from facebook_api.mixins import OwnerableModelMixin, AuthorableModelMixin, Likab
 from facebook_api.models import FacebookGraphIDModel, FacebookGraphManager, MASTER_DATABASE
 from facebook_api.utils import graph, get_or_create_from_small_resource, UnknownResourceType, get_improperly_configured_field
 from facebook_applications.models import Application
-from facebook_comments.mixins import CommentableModelMixin
 from facebook_pages.models import Page
 from facebook_users.models import User
 from m2m_history.fields import ManyToManyHistoryField
 
 
 log = logging.getLogger('facebook_posts')
+
+if 'facebook_comments' in settings.INSTALLED_APPS:
+    from facebook_comments.models import Comment
+    from facebook_comments.mixins import CommentableModelMixin
+    wall_comments = generic.GenericRelation(
+        Comment, content_type_field='owner_content_type', object_id_field='owner_id', verbose_name=u'Comments')
+else:
+    wall_comments = get_improperly_configured_field('facebook_comments', True)
+
+    class CommentableModelMixin(models.Model):
+        comments_count = None
+        fetch_comments = get_improperly_configured_field('facebook_comments')
 
 
 class PostRemoteManager(FacebookGraphManager):
@@ -74,7 +85,7 @@ class PostRemoteManager(FacebookGraphManager):
         return Post.objects.filter(pk__in=ids), response
 
 
-class Post(OwnerableModelMixin, AuthorableModelMixin, LikableModelMixin, CommentableModelMixin, ShareableModelMixin, FacebookGraphIDModel):
+class Post(AuthorableModelMixin, LikableModelMixin, CommentableModelMixin, ShareableModelMixin, FacebookGraphIDModel):
 
     # Contains in data an array of objects, each with the name and Facebook id of the user
     owners_json = fields.JSONField(null=True, help_text='Profiles mentioned or targeted in this post')
@@ -145,6 +156,8 @@ class Post(OwnerableModelMixin, AuthorableModelMixin, LikableModelMixin, Comment
     expanded_width = models.IntegerField(null=True)
 
 #    like_users = ManyToManyHistoryField(User, related_name='like_posts')
+
+    comments = wall_comments
 
     objects = models.Manager()
     remote = PostRemoteManager()
@@ -250,19 +263,3 @@ class PostOwner(models.Model):
                 raise ValueError("'owner' field should be Page or User instance, not %s" % type(self.owner))
 
         return super(PostOwner, self).save(*args, **kwargs)
-
-
-'''
-Fields, dependent on other applications
-'''
-
-
-if 'facebook_comments' in settings.INSTALLED_APPS:
-    from facebook_comments.models import Comment
-    wall_comments = generic.GenericRelation(
-        Comment, content_type_field='owner_content_type', object_id_field='owner_id', verbose_name=u'Comments')
-else:
-    wall_comments = get_improperly_configured_field('facebook_comments', True)
-
-
-Post.add_to_class('comments', wall_comments)
