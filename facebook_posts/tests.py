@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
-from django.test import TestCase
-from facebook_pages.factories import PageFactory
-from facebook_applications.models import Application
-from facebook_users.models import User
-from factories import PostFactory, CommentFactory
-from models import Post, PostOwner, Comment, Page
 from datetime import datetime, timedelta
+
+from django.test import TestCase
+from facebook_applications.models import Application
+from facebook_comments.factories import CommentFactory
+from facebook_pages.factories import PageFactory
+from facebook_users.models import User
+
+from .factories import PostFactory
+from .models import Post, PostOwner, Comment, Page
 
 PAGE_ID = '19292868552'
 POST1_ID = '19292868552_10150189643478553'
@@ -17,6 +20,7 @@ GROUP_CLOSED_ID = '167276666692692'
 
 POST_WITH_MANY_LIKES_ID = '19292868552_10151516882688553'
 POST_WITH_MANY_COMMENTS_ID = '19292868552_10150475844632302'
+
 
 class FacebookPostsTest(TestCase):
 
@@ -34,10 +38,10 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(post.name, u'Developer Roadmap Update: Moving to OAuth 2.0 + HTTPS')
         self.assertEqual(post.type, 'link')
         self.assertEqual(post.status_type, 'app_created_story')
-        self.assertTrue(isinstance(post.created_time, datetime))
+        self.assertIsInstance(post.created_time, datetime)
         self.assertTrue('We continue to make Platform more secure for users' in post.description)
-        self.assertTrue(len(post.icon) > 0)
-        self.assertTrue(len(post.picture) > 20)
+        self.assertGreater(len(post.icon), 0)
+        self.assertGreater(len(post.picture), 20)
 
     def test_post_fetch_application(self):
 
@@ -112,7 +116,7 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(comments.count(), post.comments.count())
 
         comments = post.fetch_comments(all=True)
-        self.assertTrue(post.comments_count > 1000)
+        self.assertGreater(post.comments_count, 1000)
         self.assertEqual(post.comments_count, Comment.objects.count())
         self.assertEqual(post.comments_count, comments.count())
         self.assertEqual(post.comments_count, post.comments.count())
@@ -122,40 +126,40 @@ class FacebookPostsTest(TestCase):
 
         self.assertEqual(user.name, 'Jordan Alvarez')
 
-        self.assertEqual(comment.post, post)
+        self.assertEqual(comment.owner, post)
         self.assertEqual(comment.author, user)
         self.assertEqual(comment.message, 'PLAYDOM? bahhhhhhhhh ZYNGA RULES!')
         self.assertEqual(comment.can_remove, False)
         self.assertEqual(comment.user_likes, False)
-        self.assertTrue(isinstance(comment.created_time, datetime))
-        self.assertTrue(comment.likes_count > 5)
+        self.assertIsInstance(comment.created_time, datetime)
+        self.assertGreater(comment.likes_count, 5)
 
     def test_post_fetch_likes(self):
 
         post = PostFactory(graph_id=POST_WITH_MANY_LIKES_ID)
 
-        self.assertEqual(post.like_users.count(), 0)
+        self.assertEqual(post.likes_users.count(), 0)
         self.assertEqual(User.objects.count(), 1)
 
         users = post.fetch_likes(all=True)
-        self.assertTrue(users.count() > 1000)
+        self.assertGreater(users.count(), 1000)
         self.assertEqual(post.likes_count, users.count())
         self.assertEqual(post.likes_count, User.objects.count() - 1)
-        self.assertEqual(post.likes_count, post.like_users.count())
+        self.assertEqual(post.likes_count, post.likes_users.count())
 
     def test_comment_fetch_likes(self):
 
         post = PostFactory(graph_id=POST1_ID)
-        comment = CommentFactory(graph_id=COMMENT1_ID, post=post)
+        comment = CommentFactory(graph_id=COMMENT1_ID, owner=post)
 
-        self.assertEqual(comment.like_users.count(), 0)
+        self.assertEqual(comment.likes_users.count(), 0)
         self.assertEqual(User.objects.count(), 2)
 
         users = comment.fetch_likes(all=True)
-        self.assertTrue(users.count() > 7)
+        self.assertGreater(users.count(), 7)
         self.assertEqual(comment.likes_count, users.count())
         self.assertEqual(comment.likes_count, User.objects.count() - 2)
-        self.assertEqual(comment.likes_count, comment.like_users.count())
+        self.assertEqual(comment.likes_count, comment.likes_users.count())
 
     def test_post_fetch_shares(self):
 
@@ -165,14 +169,14 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(User.objects.count(), 1)
 
         users = post.fetch_shares(all=True)
-        self.assertTrue(users.count() >= 40)
+        self.assertGreaterEqual(users.count(), 40)
         self.assertEqual(post.shares_count, users.count())
         self.assertEqual(post.shares_count, User.objects.count() - 1)
         self.assertEqual(post.shares_count, post.shares_users.count())
 
         post = PostFactory(graph_id='1411299469098495_1534163126812128')
         users = post.fetch_shares(all=True)
-        self.assertTrue(users.count() >= 8)
+        self.assertGreaterEqual(users.count(), 8)
 
         count = users.count()
 
@@ -182,7 +186,7 @@ class FacebookPostsTest(TestCase):
     def test_page_fetch_posts_with_strange_object_id(self):
 
         instance = PageFactory(graph_id=252974534827155)
-        posts = instance.fetch_posts(since=datetime(2014,9,2))
+        posts = instance.fetch_posts(since=datetime(2014, 9, 2))
 
         self.assertEqual(posts.filter(graph_id='252974534827155_323648421093099')[0].object_id, None)
 
@@ -192,18 +196,18 @@ class FacebookPostsTest(TestCase):
 
         self.assertEqual(Post.objects.count(), 0)
 
-        posts = page.fetch_posts(limit=100)
+        posts = page.fetch_posts(limit=95)
         posts_count = Post.objects.count()
 
-        self.assertEqual(posts_count, 100)
-        self.assertEqual(posts_count, len(posts))
+        self.assertGreater(posts.count(), 95)
+        self.assertEqual(posts.count(), posts_count)
 
         Post.objects.all().delete()
         posts = page.fetch_posts(since=datetime.now() - timedelta(10))
         posts_count1 = Post.objects.count()
 
-        self.assertTrue(posts_count1 < posts_count)
-        self.assertEqual(posts_count1, len(posts))
+        self.assertLess(posts_count1, posts_count)
+        self.assertEqual(posts_count1, posts.count())
 
 #     def test_group_closed_fetch_posts(self):
 #
@@ -213,7 +217,7 @@ class FacebookPostsTest(TestCase):
 #
 #         posts = page.fetch_posts(all=True)
 #
-#         self.assertTrue(len(posts) > 0) # ensure user has access to closed group
+# self.assertTrue(len(posts) > 0) # ensure user has access to closed group
 
     def test_page_fetch_many_posts(self):
 
@@ -225,6 +229,6 @@ class FacebookPostsTest(TestCase):
 
         posts_count = Post.objects.count()
 
-        self.assertTrue(posts_count > 250)
+        self.assertGreater(posts_count, 250)
         self.assertEqual(posts_count, len(posts))
         self.assertTrue(posts.filter(created_time__lte=datetime(2014, 1, 7)).count(), 1)
