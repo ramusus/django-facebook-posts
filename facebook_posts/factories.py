@@ -1,15 +1,19 @@
-from facebook_users.factories import UserFactory
-#from facebook_pages.factories import PageFactory
-from models import Post, Comment, PostOwner
 from datetime import datetime
-import factory
 import random
 
+from facebook_users.factories import UserFactory
+import factory
+
+import models
+
+
 class PostOwnerFactory(factory.DjangoModelFactory):
-    FACTORY_FOR = PostOwner
+
+    class Meta:
+        model = models.PostOwner
+
 
 class PostFactory(factory.DjangoModelFactory):
-    FACTORY_FOR = Post
 
     created_time = datetime.now()
 
@@ -17,11 +21,5 @@ class PostFactory(factory.DjangoModelFactory):
     author = factory.SubFactory(UserFactory)
     graph_id = factory.LazyAttributeSequence(lambda o, n: '%s_%s' % (n, n))
 
-class CommentFactory(factory.DjangoModelFactory):
-    FACTORY_FOR = Comment
-
-    created_time = datetime.now()
-
-    post = factory.SubFactory(PostFactory)
-    author = factory.SubFactory(UserFactory)
-    graph_id = factory.LazyAttributeSequence(lambda o, n: '%s_%s' % (o.post.graph_id, n))
+    class Meta:
+        model = models.Post
