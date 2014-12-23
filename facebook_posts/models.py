@@ -10,15 +10,15 @@ from django.contrib.contenttypes import generic
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from facebook_api import fields
+from facebook_api.api import api_call
 from facebook_api.decorators import fetch_all, atomic
 from facebook_api.mixins import OwnerableModelMixin, AuthorableModelMixin, LikableModelMixin, ShareableModelMixin
 from facebook_api.models import FacebookGraphIDModel, FacebookGraphManager, MASTER_DATABASE
-from facebook_api.utils import graph, get_or_create_from_small_resource, UnknownResourceType, get_improperly_configured_field
+from facebook_api.utils import get_or_create_from_small_resource, UnknownResourceType, get_improperly_configured_field
 from facebook_applications.models import Application
 from facebook_pages.models import Page
 from facebook_users.models import User
 from m2m_history.fields import ManyToManyHistoryField
-
 
 log = logging.getLogger('facebook_posts')
 
@@ -63,7 +63,7 @@ class PostRemoteManager(FacebookGraphManager):
                 except TypeError:
                     raise ValueError('Wrong type of argument %s: %s' % (field, type(value)))
 
-        response = graph('%s/%s' % (page.graph_id, edge), **kwargs)
+        response = api_call('%s/%s' % (page.graph_id, edge), **kwargs)
         ids = []
         if response:
             log.debug('response objects count - %s' % len(response.data))

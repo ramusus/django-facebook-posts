@@ -9,13 +9,13 @@ class Migration(SchemaMigration):
 
     def forwards(self, orm):
 
-        # Changing field 'Post.link'
-        db.alter_column(u'facebook_posts_post', 'link', self.gf('django.db.models.fields.URLField')(max_length=1000))
+        # Changing field 'Post.author_id'
+        db.alter_column(u'facebook_posts_post', 'author_id', self.gf('django.db.models.fields.BigIntegerField')(null=True))
 
     def backwards(self, orm):
 
-        # Changing field 'Post.link'
-        db.alter_column(u'facebook_posts_post', 'link', self.gf('django.db.models.fields.URLField')(max_length=500))
+        # Changing field 'Post.author_id'
+        db.alter_column(u'facebook_posts_post', 'author_id', self.gf('django.db.models.fields.PositiveIntegerField')(null=True))
 
     models = {
         u'contenttypes.contenttype': {
@@ -27,46 +27,47 @@ class Migration(SchemaMigration):
         },
         u'facebook_applications.application': {
             'Meta': {'ordering': "['name']", 'object_name': 'Application'},
-            'graph_id': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '100'}),
+            'graph_id': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '70'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'name': ('django.db.models.fields.CharField', [], {'max_length': '200'}),
             'namespace': ('django.db.models.fields.CharField', [], {'max_length': '100'})
         },
-        u'facebook_posts.comment': {
+        u'facebook_comments.comment': {
             'Meta': {'object_name': 'Comment'},
-            'author_content_type': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'facebook_comments'", 'null': 'True', 'to': u"orm['contenttypes.ContentType']"}),
-            'author_id': ('django.db.models.fields.PositiveIntegerField', [], {'null': 'True', 'db_index': 'True'}),
+            'author_content_type': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'content_type_authors_comments'", 'null': 'True', 'to': u"orm['contenttypes.ContentType']"}),
+            'author_id': ('django.db.models.fields.BigIntegerField', [], {'null': 'True', 'db_index': 'True'}),
             'author_json': ('annoying.fields.JSONField', [], {'null': 'True'}),
             'can_remove': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'created_time': ('django.db.models.fields.DateTimeField', [], {'db_index': 'True'}),
-            'graph_id': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '100'}),
+            'graph_id': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '70'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'like_users': ('django.db.models.fields.related.ManyToManyField', [], {'related_name': "'like_comments'", 'symmetrical': 'False', 'to': u"orm['facebook_users.User']"}),
-            'likes_count': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
+            'likes_count': ('django.db.models.fields.PositiveIntegerField', [], {'null': 'True'}),
+            'likes_users': ('m2m_history.fields.ManyToManyHistoryField', [], {'related_name': "'like_comments'", 'symmetrical': 'False', 'to': u"orm['facebook_users.User']"}),
             'message': ('django.db.models.fields.TextField', [], {}),
-            'post': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'comments'", 'to': u"orm['facebook_posts.Post']"}),
+            'owner_content_type': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'content_type_owners_comments'", 'null': 'True', 'to': u"orm['contenttypes.ContentType']"}),
+            'owner_id': ('django.db.models.fields.BigIntegerField', [], {'null': 'True', 'db_index': 'True'}),
             'user_likes': ('django.db.models.fields.BooleanField', [], {'default': 'False'})
         },
         u'facebook_posts.post': {
             'Meta': {'object_name': 'Post'},
             'actions': ('annoying.fields.JSONField', [], {'null': 'True'}),
             'application': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'posts'", 'null': 'True', 'to': u"orm['facebook_applications.Application']"}),
-            'author_content_type': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'facebook_posts'", 'null': 'True', 'to': u"orm['contenttypes.ContentType']"}),
-            'author_id': ('django.db.models.fields.PositiveIntegerField', [], {'null': 'True', 'db_index': 'True'}),
+            'author_content_type': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'content_type_authors_posts'", 'null': 'True', 'to': u"orm['contenttypes.ContentType']"}),
+            'author_id': ('django.db.models.fields.BigIntegerField', [], {'null': 'True', 'db_index': 'True'}),
             'author_json': ('annoying.fields.JSONField', [], {'null': 'True'}),
             'caption': ('django.db.models.fields.TextField', [], {}),
-            'comments_count': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
+            'comments_count': ('django.db.models.fields.PositiveIntegerField', [], {'null': 'True'}),
             'comments_json': ('annoying.fields.JSONField', [], {'null': 'True'}),
             'created_time': ('django.db.models.fields.DateTimeField', [], {'db_index': 'True'}),
             'description': ('django.db.models.fields.TextField', [], {}),
             'expanded_height': ('django.db.models.fields.IntegerField', [], {'null': 'True'}),
             'expanded_width': ('django.db.models.fields.IntegerField', [], {'null': 'True'}),
-            'graph_id': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '100'}),
+            'graph_id': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '70'}),
             'icon': ('django.db.models.fields.URLField', [], {'max_length': '500'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'like_users': ('django.db.models.fields.related.ManyToManyField', [], {'related_name': "'like_posts'", 'symmetrical': 'False', 'to': u"orm['facebook_users.User']"}),
-            'likes_count': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
+            'likes_count': ('django.db.models.fields.PositiveIntegerField', [], {'null': 'True'}),
             'likes_json': ('annoying.fields.JSONField', [], {'null': 'True'}),
+            'likes_users': ('m2m_history.fields.ManyToManyHistoryField', [], {'related_name': "'like_posts'", 'symmetrical': 'False', 'to': u"orm['facebook_users.User']"}),
             'link': ('django.db.models.fields.URLField', [], {'max_length': '1000'}),
             'message': ('django.db.models.fields.TextField', [], {}),
             'message_tags': ('annoying.fields.JSONField', [], {'null': 'True'}),
@@ -77,8 +78,9 @@ class Migration(SchemaMigration):
             'place': ('annoying.fields.JSONField', [], {'null': 'True'}),
             'privacy': ('annoying.fields.JSONField', [], {'null': 'True'}),
             'properties': ('annoying.fields.JSONField', [], {'null': 'True'}),
-            'shares_count': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
+            'shares_count': ('django.db.models.fields.PositiveIntegerField', [], {'null': 'True'}),
             'shares_json': ('annoying.fields.JSONField', [], {'null': 'True'}),
+            'shares_users': ('m2m_history.fields.ManyToManyHistoryField', [], {'related_name': "'shares_posts'", 'symmetrical': 'False', 'to': u"orm['facebook_users.User']"}),
             'source': ('django.db.models.fields.TextField', [], {}),
             'status_type': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
             'story': ('django.db.models.fields.TextField', [], {}),
@@ -107,7 +109,7 @@ class Migration(SchemaMigration):
             'favorite_teams': ('annoying.fields.JSONField', [], {'max_length': '500', 'null': 'True'}),
             'first_name': ('django.db.models.fields.CharField', [], {'max_length': '300'}),
             'gender': ('django.db.models.fields.CharField', [], {'max_length': '10'}),
-            'graph_id': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '100'}),
+            'graph_id': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '70'}),
             'hometown': ('annoying.fields.JSONField', [], {'max_length': '500', 'null': 'True'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'installed': ('annoying.fields.JSONField', [], {'max_length': '500', 'null': 'True'}),
