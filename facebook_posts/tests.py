@@ -176,7 +176,7 @@ class FacebookPostsTest(TestCase):
 
         post = PostFactory(graph_id='1411299469098495_1534163126812128')
         users = post.fetch_shares(all=True)
-        self.assertGreaterEqual(users.count(), 8)
+        self.assertGreaterEqual(users.count(), 7)
 
         count = users.count()
 
@@ -186,7 +186,7 @@ class FacebookPostsTest(TestCase):
     def test_page_fetch_posts_with_strange_object_id(self):
 
         instance = PageFactory(graph_id=252974534827155)
-        posts = instance.fetch_posts(since=datetime(2014, 9, 2))
+        posts = instance.fetch_posts(all=True, since=datetime(2014, 9, 2))
 
         self.assertEqual(posts.filter(graph_id='252974534827155_323648421093099')[0].object_id, None)
 
@@ -199,11 +199,11 @@ class FacebookPostsTest(TestCase):
         posts = page.fetch_posts(limit=95)
         posts_count = Post.objects.count()
 
-        self.assertGreater(posts.count(), 95)
+        self.assertGreaterEqual(posts.count(), 95)
         self.assertEqual(posts.count(), posts_count)
 
         Post.objects.all().delete()
-        posts = page.fetch_posts(since=datetime.now() - timedelta(10))
+        posts = page.fetch_posts(all=True, since=datetime.now() - timedelta(10))
         posts_count1 = Post.objects.count()
 
         self.assertLess(posts_count1, posts_count)
@@ -225,7 +225,7 @@ class FacebookPostsTest(TestCase):
 
         self.assertEqual(Post.objects.count(), 0)
 
-        posts = page.fetch_posts(since=datetime(2014, 1, 1))
+        posts = page.fetch_posts(all=True, since=datetime(2014, 1, 1))
 
         posts_count = Post.objects.count()
 
