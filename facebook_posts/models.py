@@ -43,7 +43,7 @@ class PostRemoteManager(FacebookGraphManager):
         return instances
 
     @atomic
-    @fetch_all(return_all=update_count_and_get_posts, always_all=True, paging_next_arg_name='until')
+    @fetch_all(return_all=update_count_and_get_posts, paging_next_arg_name='until')
     def fetch_page(self, page, limit=250, offset=0, until=None, since=None, edge='posts', **kwargs):
         '''
         Arguments:
