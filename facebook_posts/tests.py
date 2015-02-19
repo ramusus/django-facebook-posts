@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime, timedelta
 
+from django.db.models import Min
 from django.test import TestCase
+from django.utils import timezone
 from facebook_applications.models import Application
 from facebook_comments.factories import CommentFactory
 from facebook_pages.factories import PageFactory
 from facebook_users.models import User
-
 from .factories import PostFactory
 from .models import Post, PostOwner, Comment, Page
 
@@ -23,9 +24,7 @@ POST_WITH_MANY_COMMENTS_ID = '19292868552_10150475844632302'
 
 
 class FacebookPostsTest(TestCase):
-
     def test_fetch_post(self):
-
         self.assertEqual(Post.objects.count(), 0)
         Post.remote.fetch(POST1_ID)
         Post.remote.fetch(POST1_ID)
@@ -37,14 +36,13 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(post.link, u'http://developers.facebook.com/blog/post/497')
         self.assertEqual(post.name, u'Developer Roadmap Update: Moving to OAuth 2.0 + HTTPS')
         self.assertEqual(post.type, 'link')
-        self.assertEqual(post.status_type, 'app_created_story')
+        self.assertEqual(post.status_type, 'published_story')
         self.assertIsInstance(post.created_time, datetime)
         self.assertTrue('We continue to make Platform more secure for users' in post.description)
         self.assertGreater(len(post.icon), 0)
         self.assertGreater(len(post.picture), 20)
 
     def test_post_fetch_application(self):
-
         Post.remote.fetch(POST1_ID)
         post = Post.objects.all()[0]
         application = Application.objects.all()[0]
@@ -60,7 +58,6 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(post.application.namespace, application_json['namespace'])
 
     def test_post_fetch_authors_owners(self):
-
         # post on the page by page
         author = {
             "name": "Facebook Developers",
@@ -84,9 +81,9 @@ class FacebookPostsTest(TestCase):
             "name": "Danny Reitzloff"
         }
         owners = [{
-            "id": "100001341687090",
-            "name": "Rainbow Gathering"
-        }]
+                      "id": "100001341687090",
+                      "name": "Rainbow Gathering"
+                  }]
 
         Post.remote.fetch(POST2_ID)
         post = Post.objects.get(graph_id=POST2_ID)
@@ -105,7 +102,6 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(postowner.owner.graph_id, owners[0]['id'])
 
     def test_post_fetch_comments(self):
-
         post = PostFactory(graph_id=POST_WITH_MANY_COMMENTS_ID)
 
         self.assertEqual(Comment.objects.count(), 0)
@@ -135,7 +131,6 @@ class FacebookPostsTest(TestCase):
         self.assertGreater(comment.likes_count, 5)
 
     def test_post_fetch_likes(self):
-
         post = PostFactory(graph_id=POST_WITH_MANY_LIKES_ID)
 
         self.assertEqual(post.likes_users.count(), 0)
@@ -148,7 +143,6 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(post.likes_count, post.likes_users.count())
 
     def test_comment_fetch_likes(self):
-
         post = PostFactory(graph_id=POST1_ID)
         comment = CommentFactory(graph_id=COMMENT1_ID, owner=post)
 
@@ -162,7 +156,6 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(comment.likes_count, comment.likes_users.count())
 
     def test_post_fetch_shares(self):
-
         post = PostFactory(graph_id=POST_WITH_MANY_LIKES_ID)
 
         self.assertEqual(post.shares_users.count(), 0)
@@ -183,52 +176,59 @@ class FacebookPostsTest(TestCase):
         users = post.fetch_shares(all=True)
         self.assertEqual(users.count(), count)
 
-    def test_page_fetch_posts_with_strange_object_id(self):
-
-        instance = PageFactory(graph_id=252974534827155)
-        posts = instance.fetch_posts(all=True, since=datetime(2014, 9, 2))
-
-        self.assertEqual(posts.filter(graph_id='252974534827155_323648421093099')[0].object_id, None)
+    # def test_page_fetch_posts_with_strange_object_id(self):
+    #     instance = PageFactory(graph_id=252974534827155)
+    #     posts = instance.fetch_posts(all=True, since=datetime(2014, 9, 1).replace(tzinfo=timezone.utc))
+    #
+    #     self.assertEqual(posts.filter(graph_id='252974534827155_323648421093099')[0].object_id, None)
 
     def test_page_fetch_posts(self):
-
         page = PageFactory(graph_id=PAGE_ID)
 
         self.assertEqual(Post.objects.count(), 0)
 
-        posts = page.fetch_posts(limit=95)
-        posts_count = Post.objects.count()
+        posts = page.fetch_posts()
 
-        self.assertGreaterEqual(posts.count(), 95)
-        self.assertEqual(posts.count(), posts_count)
+        self.assertEqual(posts.count(), 25)
+        self.assertEqual(posts.count(), Post.objects.count())
+
+        earliest = posts.aggregate(Min('created_time'))['created_time__min'] - timedelta(30)
+        posts = page.fetch_posts(all=True, since=earliest)
+
+        self.assertGreater(posts.count(), 25)
+        self.assertEqual(posts.count(), Post.objects.count())
+
+        earliest1 = posts.aggregate(Min('created_time'))['created_time__min']
+        self.assertTrue(earliest <= earliest1)
+
+        # posts = page.fetch_posts(all=True, limit=95)
+        # posts_count = Post.objects.count()
+        #
+        # self.assertGreaterEqual(posts.count(), 95)
+        # self.assertEqual(posts.count(), posts_count)
 
         Post.objects.all().delete()
-        posts = page.fetch_posts(all=True, since=datetime.now() - timedelta(10))
-        posts_count1 = Post.objects.count()
+        posts = page.fetch_posts(all=True, since=timezone.now() - timedelta(10))
 
-        self.assertLess(posts_count1, posts_count)
-        self.assertEqual(posts_count1, posts.count())
+        self.assertEqual(posts.count(), Post.objects.count())
+        self.assertLess(posts.count(), 25)
 
-#     def test_group_closed_fetch_posts(self):
-#
-#         page = PageFactory(graph_id=GROUP_CLOSED_ID)
-#
-#         self.assertEqual(Post.objects.count(), 0)
-#
-#         posts = page.fetch_posts(all=True)
-#
-# self.assertTrue(len(posts) > 0) # ensure user has access to closed group
+        # def test_group_closed_fetch_posts(self):
+        # page = PageFactory(graph_id=GROUP_CLOSED_ID)
+        #
+        #     self.assertEqual(Post.objects.count(), 0)
+        #
+        #             posts = page.fetch_posts(all=True)
+        #
+        #     self.assertTrue(len(posts) > 0) # ensure user has access to closed group
 
     def test_page_fetch_many_posts(self):
-
         page = PageFactory(graph_id=PAGE1_ID)
 
         self.assertEqual(Post.objects.count(), 0)
 
-        posts = page.fetch_posts(all=True, since=datetime(2014, 1, 1))
+        posts = page.fetch_posts(all=True, since=datetime(2014, 1, 1).replace(tzinfo=timezone.utc))
 
-        posts_count = Post.objects.count()
-
-        self.assertGreater(posts_count, 250)
-        self.assertEqual(posts_count, len(posts))
-        self.assertTrue(posts.filter(created_time__lte=datetime(2014, 1, 7)).count(), 1)
+        self.assertGreater(posts.count(), 250)
+        self.assertEqual(posts.count(), Post.objects.count())
+        self.assertTrue(posts.filter(created_time__lte=datetime(2014, 1, 7).replace(tzinfo=timezone.utc)).count(), 1)

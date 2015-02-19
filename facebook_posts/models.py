@@ -1,30 +1,25 @@
 # -*- coding: utf-8 -*-
-from datetime import datetime
 import logging
-import re
-import time
 
-import dateutil.parser
 from django.conf import settings
 from django.contrib.contenttypes import generic
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from facebook_api import fields
-from facebook_api.api import api_call
-from facebook_api.decorators import fetch_all, atomic
-from facebook_api.mixins import OwnerableModelMixin, AuthorableModelMixin, LikableModelMixin, ShareableModelMixin
-from facebook_api.models import FacebookGraphIDModel, FacebookGraphManager, MASTER_DATABASE
-from facebook_api.utils import get_or_create_from_small_resource, UnknownResourceType, get_improperly_configured_field
+from facebook_api.decorators import atomic, fetch_all
+from facebook_api.mixins import AuthorableModelMixin, LikableModelMixin, ShareableModelMixin
+from facebook_api.models import MASTER_DATABASE, FacebookGraphIDModel, FacebookGraphTimelineManager
+from facebook_api.utils import UnknownResourceType, get_improperly_configured_field, get_or_create_from_small_resource
 from facebook_applications.models import Application
 from facebook_pages.models import Page
 from facebook_users.models import User
-from m2m_history.fields import ManyToManyHistoryField
 
 log = logging.getLogger('facebook_posts')
 
 if 'facebook_comments' in settings.INSTALLED_APPS:
     from facebook_comments.models import Comment
     from facebook_comments.mixins import CommentableModelMixin
+
     wall_comments = generic.GenericRelation(
         Comment, content_type_field='owner_content_type', object_id_field='owner_id', verbose_name=u'Comments')
 else:
@@ -35,7 +30,14 @@ else:
         fetch_comments = get_improperly_configured_field('facebook_comments')
 
 
-class PostRemoteManager(FacebookGraphManager):
+class PostRemoteManager(FacebookGraphTimelineManager):
+
+    timeline_cut_fieldname = 'created_time'
+
+    def api_call(self, *args, **kwargs):
+        self.response = super(PostRemoteManager, self).api_call(*args, **kwargs)
+        # if bunch of posts -> return data attribute, if one -> just return response
+        return getattr(self.response, 'data', self.response)
 
     def update_count_and_get_posts(self, instances, page, *args, **kwargs):
         page.posts_count = page.wall_posts.count()
@@ -44,49 +46,36 @@ class PostRemoteManager(FacebookGraphManager):
 
     @atomic
     @fetch_all(return_all=update_count_and_get_posts, paging_next_arg_name='until')
-    def fetch_page(self, page, limit=250, offset=0, until=None, since=None, edge='posts', **kwargs):
-        '''
+    def fetch_page(self, page, limit=250, offset=0, edge='posts', **kwargs):
+        """
         Arguments:
          * until|since - timestamp or datetime
-        '''
+        """
         kwargs.update({
             'limit': int(limit),
             'offset': int(offset),
         })
-        for field in ['until', 'since']:
-            value = locals()[field]
-            if isinstance(value, datetime):
-                kwargs[field] = int(time.mktime(value.timetuple()))
-            elif value is not None:
-                try:
-                    kwargs[field] = int(value)
-                except TypeError:
-                    raise ValueError('Wrong type of argument %s: %s' % (field, type(value)))
 
-        response = api_call('%s/%s' % (page.graph_id, edge), **kwargs)
+        self.resource_path = '%s' + '/%s' % edge
+        instances = self.get(page.graph_id, **kwargs)
+
         ids = []
-        if response:
-            log.debug('response objects count - %s' % len(response.data))
+        log.debug('response objects count=%s, limit=%s, after=%s' % (len(instances), limit, kwargs.get('since')))
+        page_ct = ContentType.objects.get_for_model(page)
+        for instance in instances:
+            instance = Post.remote.get_or_create_from_instance(instance)
 
-            page_ct = ContentType.objects.get_for_model(page)
-            if response:
-                log.debug('response objects count=%s, limit=%s, after=%s' %
-                          (len(response.data), limit, kwargs.get('after')))
-                for resource in response.data:
-                    instance = Post.remote.get_or_create_from_resource(resource)
+            if instance.owners.using(MASTER_DATABASE).count() == 0:
+                post_owner = PostOwner.objects.get_or_create(
+                    post=instance, owner_content_type=page_ct, owner_id=page.pk)[0]
+                instance.owners.add(post_owner)
 
-                    if instance.owners.using(MASTER_DATABASE).count() == 0:
-                        post_owner = PostOwner.objects.get_or_create(
-                            post=instance, owner_content_type=page_ct, owner_id=page.pk)[0]
-                        instance.owners.add(post_owner)
+            ids += [instance.pk]
 
-                    ids += [instance.pk]
-
-        return Post.objects.filter(pk__in=ids), response
+        return Post.objects.filter(pk__in=ids), self.response
 
 
 class Post(AuthorableModelMixin, LikableModelMixin, CommentableModelMixin, ShareableModelMixin, FacebookGraphIDModel):
-
     # Contains in data an array of objects, each with the name and Facebook id of the user
     owners_json = fields.JSONField(null=True, help_text='Profiles mentioned or targeted in this post')
 
@@ -111,13 +100,14 @@ class Post(AuthorableModelMixin, LikableModelMixin, CommentableModelMixin, Share
 
     caption = models.TextField(help_text='The caption of the link (appears beneath the link name)')
     description = models.TextField(help_text='A description of the link (appears beneath the link caption)')
-    story = models.TextField(
-        help_text='Text of stories not intentionally generatd by users, such as those generated when two users become friends; you must have the "Include recent activity stories" migration enabled in your app to retrieve these stories')
+    story = models.TextField(help_text='Text of stories not intentionally generatd by users, such as those '
+                                       'generated when two users become friends; you must have the "Include recent '
+                                       'activity stories" migration enabled in your app to retrieve these stories')
 
-    properties = fields.JSONField(
-        null=True, help_text='A list of properties for an uploaded video, for example, the length of the video')
-    actions = fields.JSONField(
-        null=True, help_text='A list of available actions on the post (including commenting, liking, and an optional app-specified action)')
+    properties = fields.JSONField(null=True, help_text='A list of properties for an uploaded video, for example, '
+                                                       'the length of the video')
+    actions = fields.JSONField(null=True, help_text='A list of available actions on the post (including commenting, '
+                                                    'liking, and an optional app-specified action)')
     # object containing the value field and optional friends, networks, allow, deny and description fields.
     privacy = fields.JSONField(null=True, help_text='The privacy settings of the Post')
     # object containing id and name of Page associated with this location, and
@@ -134,11 +124,13 @@ class Post(AuthorableModelMixin, LikableModelMixin, CommentableModelMixin, Share
     # are mentioned in the message field; each field in turn is an array
     # containing an object with id, name, offset, and length fields, where
     # length is the length, within the message field, of the object mentioned
-    story_tags = fields.JSONField(
-        null=True, help_text='Objects (Users, Pages, etc) tagged in a non-intentional story; you must have the "Include recent activity stories" migration enabled in your app to retrieve these tags')
+    story_tags = fields.JSONField(null=True,
+                                  help_text='Objects (Users, Pages, etc) tagged in a non-intentional story; '
+                                            'you must have the "Include recent activity stories" migration enabled '
+                                            'in your app to retrieve these tags')
     # objects containing id and name fields, encapsulated in a data[] array
-    with_tags = fields.JSONField(
-        null=True, help_text='Objects (Users, Pages, etc) tagged as being with the publisher of the post ("Who are you with?" on Facebook)')
+    with_tags = fields.JSONField(null=True, help_text='Objects (Users, Pages, etc) tagged as being with the publisher '
+                                                      'of the post ("Who are you with?" on Facebook)')
 
     # Structure containing a data object and the count of total likes, with
     # data containing an array of objects, each with the name and Facebook id
@@ -155,7 +147,7 @@ class Post(AuthorableModelMixin, LikableModelMixin, CommentableModelMixin, Share
     expanded_height = models.IntegerField(null=True)
     expanded_width = models.IntegerField(null=True)
 
-#    like_users = ManyToManyHistoryField(User, related_name='like_posts')
+    # like_users = ManyToManyHistoryField(User, related_name='like_posts')
 
     comments = wall_comments
 
@@ -170,7 +162,6 @@ class Post(AuthorableModelMixin, LikableModelMixin, CommentableModelMixin, Share
         return '%s: %s' % (unicode(self.author), self.message or self.story)
 
     def parse(self, response):
-
         # shared_stories has `object_id` not int, but like 252974534827155_1073741878
         if 'object_id' in response and '_' in response['object_id']:
             del response['object_id']
@@ -227,7 +218,7 @@ class Post(AuthorableModelMixin, LikableModelMixin, CommentableModelMixin, Share
             owner = self.owners.all()[0].owner
             return owner.username or owner.graph_id
         except IndexError:
-            return''
+            return ''
 
     @property
     def slug(self):
@@ -235,18 +226,17 @@ class Post(AuthorableModelMixin, LikableModelMixin, CommentableModelMixin, Share
 
 
 class PostOwner(models.Model):
-
-    '''
+    """
     Connection model for keeping multiple owners of single post
-    '''
-    class Meta:
-        unique_together = ('post', 'owner_content_type', 'owner_id')
-
+    """
     post = models.ForeignKey(Post, related_name='owners')
 
     owner_content_type = models.ForeignKey(ContentType, null=True, related_name='facebook_page_posts')
     owner_id = models.PositiveIntegerField(null=True, db_index=True)
     owner = generic.GenericForeignKey('owner_content_type', 'owner_id')
+
+    class Meta:
+        unique_together = ('post', 'owner_content_type', 'owner_id')
 
     def save(self, *args, **kwargs):
         # set exactly right Page or User contentTypes, not a child
