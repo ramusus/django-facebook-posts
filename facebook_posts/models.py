@@ -95,8 +95,8 @@ class Post(AuthorableModelMixin, LikableModelMixin, CommentableModelMixin, Share
     icon = models.URLField(max_length=500, help_text='A link to an icon representing the type of this post')
 
     name = models.TextField(help_text='The name of the link')
-    type = models.CharField(
-        max_length=100, help_text='A string indicating the type for this post (including link, photo, video)')
+    type = models.CharField(max_length=10, db_index=True,
+                            help_text='A string indicating the type for this post (including link, photo, video)')
 
     caption = models.TextField(help_text='The caption of the link (appears beneath the link name)')
     description = models.TextField(help_text='A description of the link (appears beneath the link caption)')
