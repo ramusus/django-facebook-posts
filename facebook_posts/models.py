@@ -219,6 +219,8 @@ class Post(AuthorableModelMixin, LikableModelMixin, CommentableModelMixin, Share
             return owner.username or owner.graph_id
         except IndexError:
             return ''
+        except AttributeError:
+            return owner.graph_id
 
     @property
     def slug(self):
