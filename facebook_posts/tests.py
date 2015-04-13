@@ -13,7 +13,8 @@ from .models import Post, PostOwner, Comment, Page
 
 PAGE_ID = '19292868552'
 POST1_ID = '19292868552_10150189643478553'
-POST2_ID = '100001341687090_632170373504346'
+POST2_ID_OLD = '100001341687090_632170373504346'
+POST2_ID_NEW = '816815785039803_632170373504346'
 COMMENT1_ID = '19292868552_10150475844632302_20258978'
 
 PAGE1_ID = '1411299469098495'
@@ -21,9 +22,21 @@ GROUP_CLOSED_ID = '167276666692692'
 
 POST_WITH_MANY_LIKES_ID = '19292868552_10151516882688553'
 POST_WITH_MANY_COMMENTS_ID = '19292868552_10150475844632302'
+POST_WITH_MANY_NEW_COMMENTS_ID = '147863265269488_588392457883231'
+COMMENT_NEW_ID = '147863265269488:588392457883231:10101338186056211_10106024381073883'
 
 
 class FacebookPostsTest(TestCase):
+
+    # def test_app_scoped_posts_graph_id(self):
+    #
+    #     post_old = PostFactory(graph_id=POST2_ID_OLD)
+    #     post_new = Post.remote.fetch(POST2_ID_OLD)
+    #
+    #     self.assertEqual(post_new.graph_id, POST2_ID_NEW)
+    #     self.assertEqual(post_old.graph_id, POST2_ID_NEW)
+    #     self.assertEqual(Post.objects.count(), 1)
+
     def test_fetch_post(self):
         self.assertEqual(Post.objects.count(), 0)
         Post.remote.fetch(POST1_ID)
@@ -76,28 +89,20 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(post.author, page)
 
         # post on the page by user
-        author = {
-            "id": "100000550622902",
-            "name": "Danny Reitzloff"
-        }
         owners = [{
-                      "id": "100001341687090",
+                      "id": "816815785039803",
                       "name": "Rainbow Gathering"
                   }]
 
-        Post.remote.fetch(POST2_ID)
-        post = Post.objects.get(graph_id=POST2_ID)
-        user = User.objects.get(graph_id=author['id'])
-        postowner = PostOwner.objects.all()[0]
+        Post.remote.fetch(POST2_ID_NEW)
+        post = Post.objects.get(graph_id=POST2_ID_NEW)
 
-        self.assertEqual(post.author, user)
-        self.assertEqual(post.owners.all()[0], postowner)
         # self.assertEqual(post.owners_json, owners) # TODO: fix saving json as string
-        self.assertDictEqual(post.author_json, author)
+        self.assertEqual(post.author.name, "Danny Reitzloff")
+        self.assertEqual(post.author_json["name"], "Danny Reitzloff")
 
-        self.assertEqual(user.graph_id, author['id'])
-        self.assertEqual(user.name, author['name'])
-
+        postowner = PostOwner.objects.all()[0]
+        self.assertEqual(post.owners.all()[0], postowner)
         self.assertEqual(postowner.owner.name, owners[0]['name'])
         self.assertEqual(postowner.owner.graph_id, owners[0]['id'])
 
@@ -118,17 +123,20 @@ class FacebookPostsTest(TestCase):
         self.assertEqual(post.comments_count, post.comments.count())
 
         comment = comments.get(graph_id=COMMENT1_ID)
-        user = User.objects.get(graph_id='100000422272038')
-
-        self.assertEqual(user.name, 'Jordan Alvarez')
-
         self.assertEqual(comment.owner, post)
-        self.assertEqual(comment.author, user)
+        self.assertEqual(comment.author.name, 'Jordan Alvarez')
         self.assertEqual(comment.message, 'PLAYDOM? bahhhhhhhhh ZYNGA RULES!')
         self.assertEqual(comment.can_remove, False)
         self.assertEqual(comment.user_likes, False)
         self.assertIsInstance(comment.created_time, datetime)
         self.assertGreater(comment.likes_count, 5)
+
+    def test_post_fetch_comments_new_ids(self):
+        post = PostFactory(graph_id=POST_WITH_MANY_NEW_COMMENTS_ID)
+
+        self.assertEqual(Comment.objects.count(), 0)
+        comments = post.fetch_comments(limit=100)
+        comments.get(graph_id=COMMENT_NEW_ID)
 
     def test_post_fetch_likes(self):
         post = PostFactory(graph_id=POST_WITH_MANY_LIKES_ID)
@@ -187,7 +195,7 @@ class FacebookPostsTest(TestCase):
 
         self.assertEqual(Post.objects.count(), 0)
 
-        posts = page.fetch_posts()
+        posts = page.fetch_posts(limit=25)
 
         self.assertEqual(posts.count(), 25)
         self.assertEqual(posts.count(), Post.objects.count())

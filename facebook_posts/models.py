@@ -34,11 +34,6 @@ class PostRemoteManager(FacebookGraphTimelineManager):
 
     timeline_cut_fieldname = 'created_time'
 
-    def api_call(self, *args, **kwargs):
-        self.response = super(PostRemoteManager, self).api_call(*args, **kwargs)
-        # if bunch of posts -> return data attribute, if one -> just return response
-        return getattr(self.response, 'data', self.response)
-
     def update_count_and_get_posts(self, instances, page, *args, **kwargs):
         page.posts_count = page.wall_posts.count()
         page.save()
@@ -56,8 +51,7 @@ class PostRemoteManager(FacebookGraphTimelineManager):
             'offset': int(offset),
         })
 
-        self.resource_path = '%s' + '/%s' % edge
-        instances = self.get(page.graph_id, **kwargs)
+        instances = self.get('%s/%s' % (page.graph_id, edge), **kwargs)
 
         ids = []
         log.debug('response objects count=%s, limit=%s, after=%s' % (len(instances), limit, kwargs.get('since')))
