@@ -138,6 +138,14 @@ class FacebookPostsTest(TestCase):
         comments = post.fetch_comments(limit=100)
         comments.get(graph_id=COMMENT_NEW_ID)
 
+    def test_post_fetch_comments_parse_author(self):
+        post = PostFactory(graph_id='125405167513286_764679973585799')
+
+        self.assertEqual(Comment.objects.count(), 0)
+        comments = post.fetch_comments(all=True)
+
+        self.assertGreater(comments.count(), 100)
+
     def test_post_fetch_likes(self):
         post = PostFactory(graph_id=POST_WITH_MANY_LIKES_ID)
 
