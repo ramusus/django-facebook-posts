@@ -4,10 +4,12 @@ from datetime import datetime, timedelta
 from django.db.models import Min
 from django.test import TestCase
 from django.utils import timezone
+from facebook_api.api import FacebookError
 from facebook_applications.models import Application
 from facebook_comments.factories import CommentFactory
 from facebook_pages.factories import PageFactory
 from facebook_users.models import User
+
 from .factories import PostFactory
 from .models import Post, PostOwner, Comment, Page
 
@@ -191,6 +193,20 @@ class FacebookPostsTest(TestCase):
 
         users = post.fetch_shares(all=True)
         self.assertEqual(users.count(), count)
+
+    def test_post_fetch_shares_status_raise(self):
+        post = PostFactory(graph_id='918051514883799')
+
+        with self.assertRaises(FacebookError):
+            post.fetch_shares(all=True)
+
+        try:
+            post.fetch_shares(all=True)
+        except Exception, e:
+            self.assertEqual(e.code, 12)
+
+        post = PostFactory(graph_id='129107667156177_918051514883799')
+        post.fetch_shares(all=True)
 
     # def test_page_fetch_posts_with_strange_object_id(self):
     #     instance = PageFactory(graph_id=252974534827155)
