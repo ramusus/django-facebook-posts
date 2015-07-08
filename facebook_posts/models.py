@@ -204,17 +204,15 @@ class Post(AuthorableModelMixin, LikableModelMixin, CommentableModelMixin, Share
 
     @property
     def slug(self):
-        return self.username or self.graph_id
+        return self.graph_id
 
     @property
     def owner_slug(self):
         try:
             owner = self.owners.all()[0].owner
-            return owner.username or owner.graph_id
-        except IndexError:
+            return owner.username if getattr(owner, 'username', None) else owner.graph_id
+        except (IndexError, KeyError, AttributeError):
             return ''
-        except AttributeError:
-            return owner.graph_id
 
     @property
     def slug(self):
