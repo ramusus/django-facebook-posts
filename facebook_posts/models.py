@@ -85,7 +85,7 @@ class Post(AuthorableModelMixin, LikableModelMixin, CommentableModelMixin, Share
 
     picture = models.TextField(help_text='If available, a link to the picture included with this post')
     source = models.TextField(help_text='A URL to a Flash movie or video file to be embedded within the post')
-    link = models.URLField(max_length=1000, help_text='The link attached to this post')
+    link = models.URLField(max_length=1500, help_text='The link attached to this post')
     icon = models.URLField(max_length=500, help_text='A link to an icon representing the type of this post')
 
     name = models.TextField(help_text='The name of the link')
