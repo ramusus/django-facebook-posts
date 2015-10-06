@@ -1,10 +1,12 @@
-# Django Facebook Graph API Posts
+Django Facebook Graph API Posts
+===============================
 
 [![PyPI version](https://badge.fury.io/py/django-facebook-posts.png)](http://badge.fury.io/py/django-facebook-posts) [![Build Status](https://travis-ci.org/ramusus/django-facebook-posts.png?branch=master)](https://travis-ci.org/ramusus/django-facebook-posts) [![Coverage Status](https://coveralls.io/repos/ramusus/django-facebook-posts/badge.png?branch=master)](https://coveralls.io/r/ramusus/django-facebook-posts)
 
 Application for interacting with Facebook Graph API Posts objects using Django model interface
 
-## Installation
+Installation
+------------
 
     pip install django-facebook-posts
 
@@ -28,7 +30,8 @@ Add into `settings.py` lines:
     OAUTH_TOKENS_FACEBOOK_USERNAME = ''                                # user login
     OAUTH_TOKENS_FACEBOOK_PASSWORD = ''                                # user password
 
-## Usage examples
+Usage examples
+--------------
 
 ### Fetch post by Graph ID
 
@@ -165,3 +168,9 @@ Fetch all comments of post
     480
     >>> comment.likes_real_count
     480
+
+Licensing
+---------
+
+This library uses the [Apache License, version 2.0](http://www.apache.org/licenses/LICENSE-2.0.html).
+Please see the library's individual files for more information.
