@@ -35,4 +35,4 @@ admin.site.register(Post, PostAdmin)
 
 if 'facebook_comments' in settings.INSTALLED_APPS:
     from facebook_comments.admin import CommentInline
-    PostAdmin.inlines = [CommentInline]
+    # PostAdmin.inlines = [CommentInline]
