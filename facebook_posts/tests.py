@@ -277,4 +277,18 @@ class FacebookPostsTest(TestCase):
 
         self.assertGreater(posts.count(), 250)
         self.assertEqual(posts.count(), Post.objects.count())
-        self.assertTrue(posts.filter(created_time__lte=datetime(2014, 1, 7).replace(tzinfo=timezone.utc)).count(), 1)
+        self.assertEqual(posts.filter(created_time__lte=datetime(2014, 1, 7).replace(tzinfo=timezone.utc)).count(), 1)
+
+    def test_page_fetch_posts_reduce_the_amount_error(self):
+        since = datetime(2015, 10, 17, 16, 21, 43, 402029).replace(tzinfo=timezone.utc)
+        page = PageFactory(graph_id=363440539014)
+
+        posts = page.fetch_posts(since=since)
+        self.assertEqual(posts.count(), 125)
+
+        posts = page.fetch_posts(since=since, all=True)
+        self.assertGreater(posts.count(), 950)
+        self.assertGreater(posts.aggregate(Min('created_time'))['created_time__min'], since)
+
+        posts = page.fetch_posts(since=since, limit=250)
+        self.assertEqual(posts.count(), 250)  # TODO: Implement fetching requested amount of posts
