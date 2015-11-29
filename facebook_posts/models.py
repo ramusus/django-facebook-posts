@@ -46,8 +46,6 @@ else:
 
 class PostRemoteManager(FacebookGraphTimelineManager):
 
-    timeline_cut_fieldname = 'created_time'
-
     def update_count_and_get_posts(self, instances, page, *args, **kwargs):
         page.posts_count = page.wall_posts.count()
         page.save()
