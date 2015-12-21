@@ -175,7 +175,10 @@ class Post(AuthorableModelMixin, LikableModelMixin, CommentableModelMixin, Share
         if 'from' in response:
             response['author_json'] = response.pop('from')
         if 'to' in response and len(response['to']['data']):
-            response['owners_json'] = response.pop('to')['data']
+            response['owners_json'] = []
+            for owner in response.pop('to')['data']:
+                if owner not in response['owners_json']:
+                    response['owners_json'].append(owner)
 
         for field in ['likes', 'comments', 'shares']:
             if field in response:
