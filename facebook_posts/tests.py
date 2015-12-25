@@ -44,6 +44,17 @@ COMMENT_NEW_ID = '147863265269488:588392457883231:10101338186056211_101060243810
 
 class FacebookPostsTest(TestCase):
 
+    def assertRaisesApiError(self, func, code, message=None):
+        with self.assertRaises(FacebookError):
+            func()
+
+        try:
+            func()
+        except FacebookError as e:
+            self.assertEqual(e.code, code)
+            if message is not None:
+                self.assertEqual(e.message, message)
+
     # def test_app_scoped_posts_graph_id(self):
     #
     #     post_old = PostFactory(graph_id=POST2_ID_OLD)
@@ -211,16 +222,41 @@ class FacebookPostsTest(TestCase):
     def test_post_fetch_shares_status_raise(self):
         post = PostFactory(graph_id='918051514883799')
 
-        with self.assertRaises(FacebookError):
-            post.fetch_shares(all=True)
-
-        try:
-            post.fetch_shares(all=True)
-        except Exception, e:
-            self.assertEqual(e.code, 12)
+        self.assertRaisesApiError(lambda: post.fetch_shares(all=True), code=12,
+                                  message='(#12) notes API is deprecated for versions v2.0 and higher')
 
         post = PostFactory(graph_id='129107667156177_918051514883799')
         post.fetch_shares(all=True)
+
+    def test_post_fetch_shares_unkown_error(self):
+        # TODO: bug https://developers.facebook.com/bugs/1566916086883168/
+        post = PostFactory(graph_id='148538918489831_1027575670586147')
+
+        self.assertRaisesApiError(lambda: post.fetch_shares(all=True), code=1, message='An unknown error has occurred.')
+
+    def test_post_fetch_shares_reduce_the_amount_error(self):
+        post = PostFactory(graph_id='14226545351_10156208764390352')
+
+        self.assertRaisesApiError(lambda: post.fetch_shares(all=True), code=1,
+                                  message='Please reduce the amount of data you\'re asking for, then retry your request')
+
+    def test_post_fetch_shares_empty_result(self):
+        # # TODO: bug https://developers.facebook.com/bugs/191104101236614/
+        post = PostFactory(graph_id='417876978235639_996918453664819')
+
+        users = post.fetch_shares(all=True, version=2.4)
+        self.assertEqual(users.count(), 0)
+
+        users = post.fetch_shares(all=True, version=2.3)
+        self.assertGreater(users.count(), 24)  # on the site 30
+
+        post = PostFactory(graph_id='417876978235639_1002566509766680')
+
+        users = post.fetch_shares(all=True, version=2.4)
+        self.assertEqual(users.count(), 0)
+
+        users = post.fetch_shares(all=True, version=2.3)
+        self.assertGreater(users.count(), 300)  # on the site 300
 
     # def test_page_fetch_posts_with_strange_object_id(self):
     #     instance = PageFactory(graph_id=252974534827155)
