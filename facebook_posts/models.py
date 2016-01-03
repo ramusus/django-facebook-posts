@@ -165,7 +165,7 @@ class Post(AuthorableModelMixin, LikableModelMixin, CommentableModelMixin, Share
         verbose_name_plural = 'Facebook posts'
 
     def __unicode__(self):
-        return '%s: %s' % (unicode(self.author), self.message or self.story)
+        return self.message or self.story
 
     def parse(self, response):
         # shared_stories has `object_id` not int, but like 252974534827155_1073741878
