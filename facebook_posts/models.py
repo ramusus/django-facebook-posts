@@ -167,6 +167,12 @@ class Post(AuthorableModelMixin, LikableModelMixin, CommentableModelMixin, Share
     def __unicode__(self):
         return self.message or self.story
 
+    def _substitute(self, old_instance):
+        super(Post, self)._substitute(old_instance)
+        for field_name in ('likes_count', 'comments_count'):
+            if not getattr(self, field_name) and getattr(old_instance, field_name):
+                setattr(self, field_name, getattr(old_instance, field_name))
+
     def parse(self, response):
         # shared_stories has `object_id` not int, but like 252974534827155_1073741878
         if 'object_id' in response and '_' in response['object_id']:
