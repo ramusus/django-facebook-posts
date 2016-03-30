@@ -169,9 +169,11 @@ class Post(AuthorableModelMixin, LikableModelMixin, CommentableModelMixin, Share
 
     def _substitute(self, old_instance):
         super(Post, self)._substitute(old_instance)
-        for field_name in ('likes_count', 'comments_count'):
-            if not getattr(self, field_name) and getattr(old_instance, field_name):
-                setattr(self, field_name, getattr(old_instance, field_name))
+        for field_name in ('likes_count', 'comments_count', 'shares_count'):
+            value = getattr(self, field_name)
+            old_value = getattr(old_instance, field_name)
+            if value is None and old_value is not None:
+                setattr(self, field_name, old_value)
 
     def parse(self, response):
         # shared_stories has `object_id` not int, but like 252974534827155_1073741878
