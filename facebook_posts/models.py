@@ -58,24 +58,25 @@ class PostRemoteManager(FacebookGraphTimelineManager):
         Arguments:
          * until|since - timestamp or datetime
         """
+        if isinstance(page, Page):
+            model = Page
+        elif isinstance(page, User):
+            model = User
+        else:
+            raise ValueError("Argument page should be Page or User isntance, not %s" % type(page))
+        page_ct = ContentType.objects.get_for_model(model)
         kwargs.update({
             'limit': int(limit),
             'offset': int(offset),
         })
-
         instances = self.get('%s/%s' % (page.graph_id, edge), **kwargs)
 
         ids = []
         log.debug('response objects count=%s, limit=%s, after=%s' % (len(instances), limit, kwargs.get('since')))
-        page_ct = ContentType.objects.get_for_model(page)
         for instance in instances:
             instance = Post.remote.get_or_create_from_instance(instance)
-
-            if instance.owners.using(MASTER_DATABASE).count() == 0:
-                post_owner = PostOwner.objects.get_or_create(
-                    post=instance, owner_content_type=page_ct, owner_id=page.pk)[0]
-                instance.owners.add(post_owner)
-
+            PostOwner.objects.using(MASTER_DATABASE).get_or_create(owner_content_type=page_ct, owner_id=page.pk,
+                                                                   post_id=instance.pk)
             ids += [instance.pk]
 
         return Post.objects.filter(pk__in=ids), self.response
