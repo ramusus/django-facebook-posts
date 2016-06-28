@@ -41,7 +41,6 @@ POST_WITH_MANY_COMMENTS_ID = '19292868552_10150475844632302'
 POST_WITH_MANY_NEW_COMMENTS_ID = '147863265269488_588392457883231'
 COMMENT_NEW_ID = '147863265269488:588392457883231:10101338186056211_10106024381073883'
 
-
 class FacebookPostsTest(FacebookApiTestCase):
 
     def assertRaisesApiError(self, func, code, message=None):
@@ -55,14 +54,14 @@ class FacebookPostsTest(FacebookApiTestCase):
             if message is not None:
                 self.assertEqual(e.message, message)
 
-    # def test_app_scoped_posts_graph_id(self):
-    #
-    #     post_old = PostFactory(graph_id=POST2_ID_OLD)
-    #     post_new = Post.remote.fetch(POST2_ID_OLD)
-    #
-    #     self.assertEqual(post_new.graph_id, POST2_ID_NEW)
-    #     self.assertEqual(post_old.graph_id, POST2_ID_NEW)
-    #     self.assertEqual(Post.objects.count(), 1)
+    def test_app_scoped_posts_graph_id(self):
+
+        post_old = PostFactory(graph_id=POST2_ID_OLD)
+        post_new = Post.remote.fetch(POST2_ID_OLD)
+
+        self.assertEqual(post_new.graph_id, POST2_ID_NEW)
+        self.assertEqual(post_old.graph_id, POST2_ID_NEW)
+        self.assertEqual(Post.objects.count(), 1)
 
     def test_fetch_post(self):
         self.assertEqual(Post.objects.count(), 0)
@@ -184,6 +183,22 @@ class FacebookPostsTest(FacebookApiTestCase):
         self.assertEqual(post.likes_count, users.count())
         self.assertEqual(post.likes_count, User.objects.count() - 1)
         self.assertEqual(post.likes_count, post.likes_users.count())
+
+    def test_post_fetch_reactions(self):
+        reaction_types = ['like', 'love', 'wow', 'haha', 'sad', 'angry', 'thankful']
+        # post = PostFactory(graph_id='100001561257492_10151516882688553')
+        post = Post.remote.fetch(POST_WITH_MANY_LIKES_ID)
+
+        count_all = 0
+        for k,v in post.fetch_reactions().items():
+            count_all += v.count()
+
+        count_by_types = 0
+        for reaction in reaction_types:
+            count = post.fetch_reactions(reaction=reaction).count()
+            count_by_types += count
+
+        self.assertEqual(count_all, count_by_types)
 
     def test_comment_fetch_likes(self):
         post = PostFactory(graph_id=POST1_ID)
