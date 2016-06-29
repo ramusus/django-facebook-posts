@@ -37,6 +37,7 @@ PAGE1_ID = '1411299469098495'
 GROUP_CLOSED_ID = '167276666692692'
 
 POST_WITH_MANY_LIKES_ID = '19292868552_10151516882688553'
+POST_WITH_REACTIONS_ID = '100001561257492_10152897601858553'
 POST_WITH_MANY_COMMENTS_ID = '19292868552_10150475844632302'
 POST_WITH_MANY_NEW_COMMENTS_ID = '147863265269488_588392457883231'
 COMMENT_NEW_ID = '147863265269488:588392457883231:10101338186056211_10106024381073883'
@@ -185,9 +186,8 @@ class FacebookPostsTest(FacebookApiTestCase):
         self.assertEqual(post.likes_count, post.likes_users.count())
 
     def test_post_fetch_reactions(self):
-        reaction_types = ['like', 'love', 'wow', 'haha', 'sad', 'angry', 'thankful']
-        # post = PostFactory(graph_id='100001561257492_10151516882688553')
-        post = Post.remote.fetch(POST_WITH_MANY_LIKES_ID)
+        reaction_types = ['like', 'love', 'wow', 'haha']
+        post = Post.remote.fetch(POST_WITH_REACTIONS_ID)
 
         count_all = 0
         for k,v in post.fetch_reactions().items():
@@ -196,6 +196,7 @@ class FacebookPostsTest(FacebookApiTestCase):
         count_by_types = 0
         for reaction in reaction_types:
             count = post.fetch_reactions(reaction=reaction).count()
+            self.assertNotEqual(count, 0)
             count_by_types += count
 
         self.assertEqual(count_all, count_by_types)
