@@ -21,7 +21,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from facebook_api import fields
 from facebook_api.decorators import atomic, fetch_all
-from facebook_api.mixins import AuthorableModelMixin, LikableModelMixin, ShareableModelMixin
+from facebook_api.mixins import AuthorableModelMixin, LikableModelMixin, ReactionableModelMixin, ShareableModelMixin
 from facebook_api.models import MASTER_DATABASE, FacebookGraphIDModel, FacebookGraphTimelineManager
 from facebook_api.utils import UnknownResourceType, get_improperly_configured_field, get_or_create_from_small_resource
 from facebook_applications.models import Application
@@ -82,7 +82,8 @@ class PostRemoteManager(FacebookGraphTimelineManager):
         return Post.objects.filter(pk__in=ids), self.response
 
 
-class Post(AuthorableModelMixin, LikableModelMixin, CommentableModelMixin, ShareableModelMixin, FacebookGraphIDModel):
+class Post(AuthorableModelMixin, LikableModelMixin, ReactionableModelMixin, CommentableModelMixin, ShareableModelMixin,
+           FacebookGraphIDModel):
     # Contains in data an array of objects, each with the name and Facebook id of the user
     owners_json = fields.JSONField(null=True, help_text='Profiles mentioned or targeted in this post')
 
