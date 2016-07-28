@@ -53,7 +53,7 @@ class PostRemoteManager(FacebookGraphTimelineManager):
 
     @atomic
     @fetch_all(return_all=update_count_and_get_posts, paging_next_arg_name='until')
-    def fetch_page(self, page, limit=250, offset=0, edge='posts', **kwargs):
+    def fetch_page(self, page, limit=100, offset=0, edge='posts', **kwargs):
         """
         Arguments:
          * until|since - timestamp or datetime
